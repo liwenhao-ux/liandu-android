@@ -73,6 +73,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -81,6 +82,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -252,7 +254,7 @@ fun QingXueAppScreen(
                                     }
                                     if (selected?.isHabit == true) "习惯详情" else "任务详情"
                                 }
-                                null -> "练度"
+                                null -> currentScreen.label
                             },
                             fontWeight = FontWeight.SemiBold
                         )
@@ -1453,6 +1455,7 @@ private fun FocusScreen(
     var focusInput by rememberSaveable { mutableStateOf(timerState.focusMinutes.toString()) }
     var breakInput by rememberSaveable { mutableStateOf(timerState.breakMinutes.toString()) }
     var cyclesInput by rememberSaveable { mutableStateOf(timerState.totalCycles.toString()) }
+    var showFocusSetup by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(
         timerState.focusMinutes,
@@ -1472,6 +1475,7 @@ private fun FocusScreen(
     val breakValue = breakInput.validInt(1..60)
     val cyclesValue = cyclesInput.validInt(1..8)
     val configValid = focusValue != null && breakValue != null && cyclesValue != null
+    val selectedTaskTitle = tasks.firstOrNull { it.id == selectedTaskId }?.title ?: "自由专注"
     val startOrResume = {
         if (configValid) {
             onStart(checkNotNull(focusValue), checkNotNull(breakValue), checkNotNull(cyclesValue))
@@ -1491,183 +1495,216 @@ private fun FocusScreen(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            ColumnCard {
-                Text("当前任务", fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                TaskPicker(
-                    tasks = tasks,
-                    selectedTaskId = selectedTaskId,
-                    onSelectTask = onSelectTask,
-                    enabled = !timerState.hasStarted
-                )
-            }
-        }
-        item {
-            ColumnCard {
-                Text("番茄设置", fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PomodoroConfigField(
-                        value = focusInput,
-                        label = "专注/分",
-                        enabled = !timerState.hasStarted,
-                        isError = focusValue == null,
-                        modifier = Modifier.weight(1f),
-                        onValueChange = { raw ->
-                            focusInput = raw.filter(Char::isDigit).take(3)
-                            val nextFocus = focusInput.validInt(1..120)
-                            val nextBreak = breakInput.validInt(1..60)
-                            val nextCycles = cyclesInput.validInt(1..8)
-                            if (nextFocus != null && nextBreak != null && nextCycles != null) {
-                                onSetConfig(nextFocus, nextBreak, nextCycles)
-                            }
-                        }
-                    )
-                    PomodoroConfigField(
-                        value = breakInput,
-                        label = "休息/分",
-                        enabled = !timerState.hasStarted,
-                        isError = breakValue == null,
-                        modifier = Modifier.weight(1f),
-                        onValueChange = { raw ->
-                            breakInput = raw.filter(Char::isDigit).take(2)
-                            val nextFocus = focusInput.validInt(1..120)
-                            val nextBreak = breakInput.validInt(1..60)
-                            val nextCycles = cyclesInput.validInt(1..8)
-                            if (nextFocus != null && nextBreak != null && nextCycles != null) {
-                                onSetConfig(nextFocus, nextBreak, nextCycles)
-                            }
-                        }
-                    )
-                    PomodoroConfigField(
-                        value = cyclesInput,
-                        label = "轮次",
-                        enabled = !timerState.hasStarted,
-                        isError = cyclesValue == null,
-                        modifier = Modifier.weight(1f),
-                        onValueChange = { raw ->
-                            cyclesInput = raw.filter(Char::isDigit).take(1)
-                            val nextFocus = focusInput.validInt(1..120)
-                            val nextBreak = breakInput.validInt(1..60)
-                            val nextCycles = cyclesInput.validInt(1..8)
-                            if (nextFocus != null && nextBreak != null && nextCycles != null) {
-                                onSetConfig(nextFocus, nextBreak, nextCycles)
-                            }
-                        }
-                    )
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                val isFocusPhase = timerState.phase == PomodoroPhase.Focus
+                val panelColor = if (isFocusPhase) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "专注 1–120 分钟 · 休息 1–60 分钟 · 1–8 轮",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
-                    fontSize = 12.sp
-                )
-            }
-        }
-        item {
-            val isFocusPhase = timerState.phase == PomodoroPhase.Focus
-            val panelColor = if (isFocusPhase) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
-            val panelContent = if (isFocusPhase) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            }
-            val indicatorColor = if (isFocusPhase) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.primary
-            }
-            Card(
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = panelColor,
-                    contentColor = panelContent
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                val panelContent = if (isFocusPhase) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+                val indicatorColor = MaterialTheme.colorScheme.primary
+                Card(
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = panelColor,
+                        contentColor = panelContent
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "第 ${timerState.currentCycle}/${timerState.totalCycles} 轮 · " +
-                            timerState.phase.label,
-                        fontWeight = FontWeight.SemiBold,
-                        color = indicatorColor
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    TimerDial(
-                        remainingSeconds = remainingSeconds,
-                        totalSeconds = timerState.phaseTotalSeconds,
-                        indicatorColor = indicatorColor,
-                        trackColor = panelContent.copy(alpha = 0.12f)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    val status = when {
-                        timerState.isRunning -> "${timerState.phase.label}进行中"
-                        timerState.hasStarted -> "${timerState.phase.label}已暂停" +
-                            if (timerState.pauseCount > 0) " · 专注暂停 ${timerState.pauseCount} 次" else ""
-                        else -> "计划专注 ${timerState.focusMinutes * timerState.totalCycles} 分钟"
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = selectedTaskTitle,
+                            color = panelContent.copy(alpha = 0.70f),
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "第 ${timerState.currentCycle}/${timerState.totalCycles} 轮 · " +
+                                timerState.phase.label,
+                            fontWeight = FontWeight.SemiBold,
+                            color = indicatorColor
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        TimerDial(
+                            remainingSeconds = remainingSeconds,
+                            totalSeconds = timerState.phaseTotalSeconds,
+                            indicatorColor = indicatorColor,
+                            trackColor = panelContent.copy(alpha = 0.12f)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        val status = when {
+                            timerState.isRunning -> "${timerState.phase.label}进行中"
+                            timerState.hasStarted -> "${timerState.phase.label}已暂停" +
+                                if (timerState.pauseCount > 0) " · 专注暂停 ${timerState.pauseCount} 次" else ""
+                            else -> "计划专注 ${timerState.focusMinutes * timerState.totalCycles} 分钟"
+                        }
+                        Text(
+                            text = status,
+                            color = panelContent.copy(alpha = 0.72f),
+                            fontSize = 13.sp
+                        )
                     }
-                    Text(
-                        text = status,
-                        color = panelContent.copy(alpha = 0.72f),
-                        fontSize = 13.sp
-                    )
                 }
             }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = {
-                        if (timerState.isRunning) {
-                            onPause()
-                        } else if (
-                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                            PackageManager.PERMISSION_GRANTED
-                        ) {
-                            notificationPermissionLauncher.launch(
-                                Manifest.permission.POST_NOTIFICATIONS
-                            )
-                        } else {
-                            startOrResume()
-                        }
-                    },
-                    enabled = timerState.isRunning || timerState.hasStarted || configValid
-                ) {
-                    Text(
-                        when {
-                            timerState.isRunning -> "暂停"
-                            timerState.hasStarted -> "继续"
-                            else -> "开始"
-                        }
-                    )
-                }
-                OutlinedButton(onClick = onEnd, enabled = timerState.hasStarted) {
-                    Text("结束")
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = {
+                            if (timerState.isRunning) {
+                                onPause()
+                            } else if (
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                                PackageManager.PERMISSION_GRANTED
+                            ) {
+                                notificationPermissionLauncher.launch(
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                )
+                            } else {
+                                startOrResume()
+                            }
+                        },
+                        enabled = timerState.isRunning || timerState.hasStarted || configValid
+                    ) {
+                        Text(
+                            when {
+                                timerState.isRunning -> "暂停"
+                                timerState.hasStarted -> "继续"
+                                else -> "开始"
+                            }
+                        )
+                    }
+                    OutlinedButton(onClick = onEnd, enabled = timerState.hasStarted) {
+                        Text("结束")
+                    }
                 }
             }
+            item {
+                MusicSection(state = musicState, controller = musicController)
+            }
+            item { Spacer(Modifier.height(72.dp)) }
         }
-        item {
-            MusicSection(state = musicState, controller = musicController)
-        }    }
-}
 
+        FloatingActionButton(
+            onClick = { showFocusSetup = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ) {
+            Icon(Icons.Filled.Tune, contentDescription = "专注设置")
+        }
+    }
+
+    if (showFocusSetup) {
+        AlertDialog(
+            onDismissRequest = { showFocusSetup = false },
+            title = { Text("专注设置") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 520.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text("当前任务", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    TaskPicker(
+                        tasks = tasks,
+                        selectedTaskId = selectedTaskId,
+                        onSelectTask = onSelectTask,
+                        enabled = !timerState.hasStarted
+                    )
+                    Spacer(Modifier.height(18.dp))
+                    Text("番茄设置", fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PomodoroConfigField(
+                            value = focusInput,
+                            label = "专注/分",
+                            enabled = !timerState.hasStarted,
+                            isError = focusValue == null,
+                            modifier = Modifier.weight(1f),
+                            onValueChange = { raw ->
+                                focusInput = raw.filter(Char::isDigit).take(3)
+                                val nextFocus = focusInput.validInt(1..120)
+                                val nextBreak = breakInput.validInt(1..60)
+                                val nextCycles = cyclesInput.validInt(1..8)
+                                if (nextFocus != null && nextBreak != null && nextCycles != null) {
+                                    onSetConfig(nextFocus, nextBreak, nextCycles)
+                                }
+                            }
+                        )
+                        PomodoroConfigField(
+                            value = breakInput,
+                            label = "休息/分",
+                            enabled = !timerState.hasStarted,
+                            isError = breakValue == null,
+                            modifier = Modifier.weight(1f),
+                            onValueChange = { raw ->
+                                breakInput = raw.filter(Char::isDigit).take(2)
+                                val nextFocus = focusInput.validInt(1..120)
+                                val nextBreak = breakInput.validInt(1..60)
+                                val nextCycles = cyclesInput.validInt(1..8)
+                                if (nextFocus != null && nextBreak != null && nextCycles != null) {
+                                    onSetConfig(nextFocus, nextBreak, nextCycles)
+                                }
+                            }
+                        )
+                        PomodoroConfigField(
+                            value = cyclesInput,
+                            label = "轮次",
+                            enabled = !timerState.hasStarted,
+                            isError = cyclesValue == null,
+                            modifier = Modifier.weight(1f),
+                            onValueChange = { raw ->
+                                cyclesInput = raw.filter(Char::isDigit).take(1)
+                                val nextFocus = focusInput.validInt(1..120)
+                                val nextBreak = breakInput.validInt(1..60)
+                                val nextCycles = cyclesInput.validInt(1..8)
+                                if (nextFocus != null && nextBreak != null && nextCycles != null) {
+                                    onSetConfig(nextFocus, nextBreak, nextCycles)
+                                }
+                            }
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = if (timerState.hasStarted) {
+                            "本轮已开始，结束后可修改任务和番茄参数。"
+                        } else {
+                            "专注 1–120 分钟 · 休息 1–60 分钟 · 1–8 轮"
+                        },
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                        fontSize = 12.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showFocusSetup = false }) {
+                    Text("完成")
+                }
+            }
+        )
+    }
+}
 @Composable
 private fun MusicSection(state: MusicState, controller: MusicController) {
     val context = LocalContext.current
