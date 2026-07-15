@@ -1,6 +1,7 @@
 package com.example.qingxue.ui
 
 import android.Manifest
+import android.app.Activity
 import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
@@ -8,6 +9,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.view.View
+import android.view.WindowInsets as AndroidWindowInsets
+import android.view.WindowInsetsController
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -39,12 +43,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
@@ -166,6 +173,33 @@ private enum class Screen(val label: String, val icon: androidx.compose.ui.graph
     Stats("统计", Icons.Filled.DateRange)
 }
 
+@Suppress("DEPRECATION")
+private fun setSystemBarsHidden(activity: Activity?, hidden: Boolean) {
+    val window = activity?.window ?: return
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        window.insetsController?.let { controller ->
+            if (hidden) {
+                controller.hide(AndroidWindowInsets.Type.systemBars())
+                controller.systemBarsBehavior =
+                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                controller.show(AndroidWindowInsets.Type.systemBars())
+            }
+        }
+    } else {
+        window.decorView.systemUiVisibility = if (hidden) {
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        } else {
+            View.SYSTEM_UI_FLAG_VISIBLE
+        }
+    }
+}
+
 private enum class TaskKind(val label: String) {
     OneTime("一次任务"),
     Habit("长期习惯")
@@ -229,13 +263,29 @@ fun QingXueAppScreen(
         }
     }
 
+    val immersiveFocus =
+        detailDestination == null && currentScreen == Screen.Focus && focusTimerState.hasStarted
+
+    DisposableEffect(immersiveFocus, context) {
+        val activity = context as? Activity
+        setSystemBarsHidden(activity, immersiveFocus)
+        onDispose {
+            if (immersiveFocus) setSystemBarsHidden(activity, false)
+        }
+    }
+
+    BackHandler(enabled = immersiveFocus) {
+        currentScreen = Screen.Home
+    }
+
     BackHandler(enabled = detailDestination != null) {
         detailDestination = null
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            if (!immersiveFocus) {
+                TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (detailDestination == null) {
@@ -274,10 +324,11 @@ fun QingXueAppScreen(
                         }
                     }
                 }
-            )
+                )
+            }
         },
         bottomBar = {
-            if (detailDestination == null) {
+            if (!immersiveFocus && detailDestination == null) {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
                     Screen.entries.forEach { screen ->
                         NavigationBarItem(
@@ -403,7 +454,8 @@ fun QingXueAppScreen(
                                 viewModel.startFocusTimer(selectedTaskId)
                             },
                             onPause = viewModel::pauseFocusTimer,
-                            onEnd = viewModel::endFocusTimer
+                            onEnd = viewModel::endFocusTimer,
+                            onLeaveImmersive = { currentScreen = Screen.Home }
                         )
                         Screen.Stats -> StatsScreen(
                             state = state,
@@ -1434,7 +1486,8 @@ private fun FocusScreen(
     onSetConfig: (Int, Int, Int) -> Unit,
     onStart: (Int, Int, Int) -> Unit,
     onPause: () -> Unit,
-    onEnd: () -> Unit
+    onEnd: () -> Unit,
+    onLeaveImmersive: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -1486,6 +1539,19 @@ private fun FocusScreen(
     ) {
         startOrResume()
     }
+    val toggleTimer = {
+        if (timerState.isRunning) {
+            onPause()
+        } else if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            startOrResume()
+        }
+    }
 
     LaunchedEffect(timerState.isRunning, timerState.endsAt) {
         now = System.currentTimeMillis()
@@ -1495,8 +1561,18 @@ private fun FocusScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
+    if (timerState.hasStarted) {
+        ImmersiveFocusContent(
+            timerState = timerState,
+            remainingSeconds = remainingSeconds,
+            taskTitle = selectedTaskTitle,
+            onToggle = toggleTimer,
+            onEnd = onEnd,
+            onLeave = onLeaveImmersive
+        )
+    } else {
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
             modifier = Modifier.fillMaxSize().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1565,21 +1641,7 @@ private fun FocusScreen(
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Button(
-                        onClick = {
-                            if (timerState.isRunning) {
-                                onPause()
-                            } else if (
-                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                                PackageManager.PERMISSION_GRANTED
-                            ) {
-                                notificationPermissionLauncher.launch(
-                                    Manifest.permission.POST_NOTIFICATIONS
-                                )
-                            } else {
-                                startOrResume()
-                            }
-                        },
+                        onClick = toggleTimer,
                         enabled = timerState.isRunning || timerState.hasStarted || configValid
                     ) {
                         Text(
@@ -1601,13 +1663,14 @@ private fun FocusScreen(
             item { Spacer(Modifier.height(72.dp)) }
         }
 
-        FloatingActionButton(
-            onClick = { showFocusSetup = true },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        ) {
-            Icon(Icons.Filled.Tune, contentDescription = "专注设置")
+            FloatingActionButton(
+                onClick = { showFocusSetup = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Icon(Icons.Filled.Tune, contentDescription = "专注设置")
+            }
         }
     }
 
@@ -1705,6 +1768,101 @@ private fun FocusScreen(
         )
     }
 }
+
+@Composable
+private fun ImmersiveFocusContent(
+    timerState: FocusTimerState,
+    remainingSeconds: Int,
+    taskTitle: String,
+    onToggle: () -> Unit,
+    onEnd: () -> Unit,
+    onLeave: () -> Unit
+) {
+    val isFocusPhase = timerState.phase == PomodoroPhase.Focus
+    val backgroundColor = if (isFocusPhase) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    val contentColor = if (isFocusPhase) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    val indicatorColor = MaterialTheme.colorScheme.primary
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = backgroundColor,
+        contentColor = contentColor
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(horizontal = 24.dp)
+        ) {
+            IconButton(
+                onClick = onLeave,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 12.dp)
+            ) {
+                Icon(Icons.Filled.Close, contentDescription = "暂时离开专注界面")
+            }
+            Column(
+                modifier = Modifier.fillMaxSize().padding(top = 72.dp, bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = taskTitle,
+                    color = contentColor.copy(alpha = 0.72f),
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "第 ${timerState.currentCycle}/${timerState.totalCycles} 轮 · ${timerState.phase.label}",
+                    color = indicatorColor,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(28.dp))
+                TimerDial(
+                    remainingSeconds = remainingSeconds,
+                    totalSeconds = timerState.phaseTotalSeconds,
+                    indicatorColor = indicatorColor,
+                    trackColor = contentColor.copy(alpha = 0.14f)
+                )
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    text = if (timerState.isRunning) {
+                        "${timerState.phase.label}进行中"
+                    } else {
+                        "${timerState.phase.label}已暂停" +
+                            if (timerState.pauseCount > 0) " · 暂停 ${timerState.pauseCount} 次" else ""
+                    },
+                    color = contentColor.copy(alpha = 0.72f),
+                    fontSize = 13.sp
+                )
+                Spacer(Modifier.height(32.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = onToggle) {
+                        Icon(
+                            if (timerState.isRunning) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = null
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (timerState.isRunning) "暂停" else "继续")
+                    }
+                    OutlinedButton(onClick = onEnd) {
+                        Text("结束")
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun MusicSection(state: MusicState, controller: MusicController) {
     val context = LocalContext.current

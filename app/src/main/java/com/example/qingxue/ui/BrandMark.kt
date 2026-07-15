@@ -1,7 +1,6 @@
 package com.example.qingxue.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -14,7 +13,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 
 @Composable
 internal fun BrandMark(modifier: Modifier = Modifier) {
-    val ink = MaterialTheme.colorScheme.onSurface
+    val ink = Color(0xFF29242B)
     val body = Color(0xFFE0A09A)
     val leaf = Color(0xFF8FA38C)
     val face = Color(0xFFFFF8EE)
@@ -43,8 +42,8 @@ internal fun BrandMark(modifier: Modifier = Modifier) {
         )
         drawCircle(body, radius = unit * 0.38f, center = center)
         drawCircle(face, radius = unit * 0.285f, center = center)
-        drawCircle(ink, radius = unit * 0.035f, center = Offset(size.width * 0.41f, size.height * 0.55f))
-        drawCircle(ink, radius = unit * 0.035f, center = Offset(size.width * 0.59f, size.height * 0.55f))
+        drawCircle(ink, radius = unit * 0.042f, center = Offset(size.width * 0.41f, size.height * 0.55f))
+        drawCircle(ink, radius = unit * 0.042f, center = Offset(size.width * 0.59f, size.height * 0.55f))
         drawArc(
             color = ink,
             startAngle = 18f,
@@ -52,7 +51,7 @@ internal fun BrandMark(modifier: Modifier = Modifier) {
             useCenter = false,
             topLeft = Offset(size.width * 0.38f, size.height * 0.56f),
             size = Size(size.width * 0.24f, size.height * 0.18f),
-            style = Stroke(width = unit * 0.045f, cap = StrokeCap.Round)
+            style = Stroke(width = unit * 0.052f, cap = StrokeCap.Round)
         )
         drawCircle(
             color = Color.White.copy(alpha = 0.45f),
