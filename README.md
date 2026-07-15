@@ -2,7 +2,7 @@
 
 一个轻量化、低耗电的学习状态分析与复盘 Android App。
 
-当前版本：`1.6.1 (23)`
+当前版本：`1.6.2 (24)`
 
 版本约定：每次功能调整或问题修复都同步递增 `versionCode` 和 `versionName`。
 
@@ -46,3 +46,9 @@
 - Android SDK 35
 
 当前机器已配置 Android SDK 35、Gradle Wrapper 和 `Small Phone` Android 15 模拟器。
+
+## 正式发布
+
+正式版通过项目根目录中已被 Git 忽略的 `keystore.properties` 读取发布签名。可参考 `keystore.properties.example` 配置，但不要提交密钥文件或真实密码。
+
+首次从调试版切换到正式版时，两者签名不同，不能直接覆盖安装。请先在 App 内导出备份，再卸载调试版、安装正式版并导入备份；以后使用同一发布签名即可直接升级。
