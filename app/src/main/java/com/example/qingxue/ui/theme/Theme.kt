@@ -25,14 +25,14 @@ enum class AppAccent(
 ) {
     GrayPurple(
         storageKey = "gray_purple",
-        label = "灰紫",
-        previewColor = Color(0xFF8E8396),
-        lightPrimary = Color(0xFF716879),
-        lightContainer = Color(0xFFE5DDE8),
-        lightOnContainer = Color(0xFF2A2630),
-        darkPrimary = Color(0xFFB7ACBE),
-        darkContainer = Color(0xFF4C4452),
-        darkOnContainer = Color(0xFFF1EAF4)
+        label = "战术红",
+        previewColor = Color(0xFF9A5B5B),
+        lightPrimary = Color(0xFF855151),
+        lightContainer = Color(0xFFF0DEDA),
+        lightOnContainer = Color(0xFF332323),
+        darkPrimary = Color(0xFFD68B80),
+        darkContainer = Color(0xFF503536),
+        darkOnContainer = Color(0xFFFFEDE8)
     ),
     MistGreen(
         storageKey = "mist_green",
@@ -87,8 +87,8 @@ private fun lightColors(accent: AppAccent): ColorScheme = lightColorScheme(
     onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFFD9DAD6),
     onTertiaryContainer = Color(0xFF202224),
-    background = Color(0xFFF2F2EC),
-    surface = Color(0xFFFAFAF6),
+    background = Color(0xFFF3F1EE),
+    surface = Color(0xFFFBF9F6),
     surfaceVariant = Color(0xFFE5E5DF),
     onBackground = Color(0xFF1B1D1F),
     onSurface = Color(0xFF1B1D1F),
@@ -109,13 +109,13 @@ private fun darkColors(accent: AppAccent): ColorScheme = darkColorScheme(
     onTertiary = Color(0xFF252729),
     tertiaryContainer = Color(0xFF3A3C3F),
     onTertiaryContainer = Color(0xFFF1F0E9),
-    background = Color(0xFF101214),
-    surface = Color(0xFF181A1C),
-    surfaceVariant = Color(0xFF303235),
+    background = Color(0xFF111113),
+    surface = Color(0xFF1B1A1C),
+    surfaceVariant = Color(0xFF302D30),
     onBackground = Color(0xFFF1F0E9),
     onSurface = Color(0xFFF1F0E9),
     outline = Color(0xFF929491),
-    outlineVariant = Color(0xFF414346)
+    outlineVariant = Color(0xFF454044)
 )
 
 private val AppTypography = Typography(

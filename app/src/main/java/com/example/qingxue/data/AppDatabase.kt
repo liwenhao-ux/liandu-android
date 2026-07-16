@@ -13,9 +13,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FocusSessionEntity::class,
         CountdownEventEntity::class,
         DailyQuoteEntity::class,
-        AiAnalysisEntity::class
+        AiAnalysisEntity::class,
+        DailyMatchEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -39,7 +40,8 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_6_7,
                     MIGRATION_7_8,
                     MIGRATION_8_9,
-                    MIGRATION_9_10
+                    MIGRATION_9_10,
+                    MIGRATION_10_11
                 )
                     .build()
                     .also { instance = it }
@@ -210,6 +212,43 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE study_tasks ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS daily_matches (
+                        date TEXT NOT NULL PRIMARY KEY,
+                        mainTaskId INTEGER,
+                        manualObjective TEXT NOT NULL DEFAULT '',
+                        plannedRounds INTEGER NOT NULL DEFAULT 2,
+                        userNote TEXT NOT NULL DEFAULT '',
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    "ALTER TABLE focus_sessions ADD COLUMN winCondition TEXT NOT NULL DEFAULT ''"
+                )
+                database.execSQL(
+                    "ALTER TABLE focus_sessions ADD COLUMN roundResult TEXT NOT NULL DEFAULT 'UNREVIEWED'"
+                )
+                database.execSQL(
+                    "ALTER TABLE focus_sessions ADD COLUMN focusQuality TEXT NOT NULL DEFAULT 'UNREVIEWED'"
+                )
+                database.execSQL(
+                    "ALTER TABLE focus_sessions ADD COLUMN wentWell TEXT NOT NULL DEFAULT ''"
+                )
+                database.execSQL(
+                    "ALTER TABLE focus_sessions ADD COLUMN problemDescription TEXT NOT NULL DEFAULT ''"
+                )
+                database.execSQL(
+                    "ALTER TABLE focus_sessions ADD COLUMN nextCall TEXT NOT NULL DEFAULT ''"
+                )
+                database.execSQL(
+                    "ALTER TABLE focus_sessions ADD COLUMN distractionCount INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

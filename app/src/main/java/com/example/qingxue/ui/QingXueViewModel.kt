@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.qingxue.data.CountdownEventEntity
+import com.example.qingxue.data.DailyMatchEntity
+import com.example.qingxue.data.DemoReview
 import com.example.qingxue.data.DailyQuoteEntity
 import com.example.qingxue.data.FocusOutcome
 import com.example.qingxue.data.AiAnalysisEntity
@@ -69,12 +71,15 @@ private data class DateWindowData(
     val recentDates: List<String>,
     val tasks: List<StudyTaskEntity>,
     val sessions: List<FocusSessionEntity>,
-    val dailyQuote: DailyQuoteEntity?
+    val dailyQuote: DailyQuoteEntity?,
+    val dailyMatch: DailyMatchEntity?
 )
 
 data class DashboardState(
     val todayTasks: List<StudyTaskEntity> = emptyList(),
     val todayFocusMinutes: Int = 0,
+    val todaySessions: List<FocusSessionEntity> = emptyList(),
+    val dailyMatch: DailyMatchEntity? = null,
     val recentStats: List<DayStat> = emptyList(),
     val countdowns: List<CountdownItem> = emptyList(),
     val habitStats: List<HabitStat> = emptyList(),
@@ -132,9 +137,10 @@ class QingXueViewModel(
         combine(
             repository.tasksBetween(recentDates.first(), recentDates.last()),
             repository.sessionsBetween(recentDates.first(), recentDates.last()),
-            repository.quoteForDate(date)
-        ) { tasks, sessions, dailyQuote ->
-            DateWindowData(date, recentDates, tasks, sessions, dailyQuote)
+            repository.quoteForDate(date),
+            repository.dailyMatch(date)
+        ) { tasks, sessions, dailyQuote, dailyMatch ->
+            DateWindowData(date, recentDates, tasks, sessions, dailyQuote, dailyMatch)
         }
     }
 
@@ -239,6 +245,8 @@ class QingXueViewModel(
         DashboardState(
             todayTasks = todayTasks,
             todayFocusMinutes = window.sessions.todayMinutes(window.today),
+            todaySessions = window.sessions.filter { it.date == window.today },
+            dailyMatch = window.dailyMatch,
             recentStats = stats,
             countdowns = countdowns,
             habitStats = habitStats,
@@ -250,6 +258,17 @@ class QingXueViewModel(
             )
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DashboardState())
+    fun setDailyMatch(mainTaskId: Long?, manualObjective: String, plannedRounds: Int) {
+        if (mainTaskId == null && manualObjective.isBlank()) return
+        viewModelScope.launch {
+            repository.setDailyMatch(
+                date = currentDate.value,
+                mainTaskId = mainTaskId,
+                manualObjective = manualObjective,
+                plannedRounds = plannedRounds
+            )
+        }
+    }
     fun addTask(
         title: String,
         subject: String,
@@ -351,7 +370,7 @@ class QingXueViewModel(
         }
     }
 
-    fun startFocusTimer(selectedId: Long?) {
+    fun startFocusTimer(selectedId: Long?, winCondition: String) {
         val current = _focusTimerState.value
         if (current.isRunning) return
         val selected = historyState.value.tasks.firstOrNull { it.id == selectedId }
@@ -363,7 +382,8 @@ class QingXueViewModel(
             state = current,
             taskId = taskId,
             habitId = habitId,
-            taskTitle = selected?.title
+            taskTitle = selected?.title,
+            winCondition = winCondition.trim().take(160)
         )
     }
 
@@ -375,13 +395,10 @@ class QingXueViewModel(
         if (_focusTimerState.value.hasStarted) FocusTimerService.end(applicationContext)
     }
 
-    fun settleFocusSession(outcome: FocusOutcome, reflection: String) {
+    fun settleFocusSession(review: DemoReview) {
         val pending = _pendingFocusSettlement.value ?: return
         viewModelScope.launch {
-            if (reflection.isNotBlank()) {
-                repository.updateReflection(pending.sessionId, reflection)
-            }
-            repository.settleFocusSession(pending.sessionId, outcome, currentDate.value)
+            repository.settleFocusSession(pending.sessionId, review)
             focusTimerStore.clearPendingSettlement()
         }
     }

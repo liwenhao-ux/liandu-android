@@ -44,6 +44,23 @@ class StudyRepository(private val dao: StudyDao) {
     fun habitFocusTotals(): Flow<List<TaskFocusTotal>> = dao.habitFocusTotals()
 
     fun quoteForDate(date: String): Flow<DailyQuoteEntity?> = dao.quoteForDate(date)
+    fun dailyMatch(date: String): Flow<DailyMatchEntity?> = dao.dailyMatch(date)
+
+    suspend fun setDailyMatch(
+        date: String,
+        mainTaskId: Long?,
+        manualObjective: String,
+        plannedRounds: Int
+    ) {
+        dao.upsertDailyMatch(
+            DailyMatchEntity(
+                date = date,
+                mainTaskId = mainTaskId,
+                manualObjective = manualObjective.trim().take(80),
+                plannedRounds = plannedRounds.coerceIn(1, 8)
+            )
+        )
+    }
 
     suspend fun addTask(
         title: String,
@@ -150,7 +167,7 @@ class StudyRepository(private val dao: StudyDao) {
         val cached = existing ?: DailyQuoteEntity(
             date = date,
             text = fallbackQuote(date, recentQuotes),
-            source = "练度"
+            source = "LOCK IN"
         )
 
         // Mark before requesting so relaunching the app cannot retry repeatedly that day.
@@ -184,6 +201,7 @@ class StudyRepository(private val dao: StudyDao) {
         breakMinutes: Int,
         plannedCycles: Int,
         completedCycles: Int,
+        winCondition: String,
         date: String
     ): Long {
         val durationMinutes = actualSeconds / 60
@@ -204,7 +222,8 @@ class StudyRepository(private val dao: StudyDao) {
                 focusBlockMinutes = focusBlockMinutes.coerceIn(1, 120),
                 breakMinutes = breakMinutes.coerceIn(1, 60),
                 plannedCycles = plannedCycles.coerceIn(1, 8),
-                completedCycles = completedCycles.coerceIn(0, plannedCycles.coerceIn(1, 8))
+                completedCycles = completedCycles.coerceIn(0, plannedCycles.coerceIn(1, 8)),
+                winCondition = winCondition.trim().take(160)
             )
         )
     }
@@ -218,15 +237,31 @@ class StudyRepository(private val dao: StudyDao) {
         dao.deleteSession(session)
     }
 
-    suspend fun settleFocusSession(sessionId: Long, outcome: FocusOutcome, date: String) {
-        if (outcome == FocusOutcome.Unreviewed) return
+    suspend fun settleFocusSession(sessionId: Long, review: DemoReview) {
         val session = dao.sessionById(sessionId) ?: return
-        dao.updateSession(session.copy(outcome = outcome.storageValue))
-
-        if (outcome.completesTask) {
-            val task = session.taskId?.let { dao.taskById(it) } ?: return
-            setTaskCompleted(task, completed = true, date = date)
+        val legacyOutcome = when (review.result) {
+            RoundResult.Win -> FocusOutcome.Mastered
+            RoundResult.PartialWin -> FocusOutcome.Partial
+            RoundResult.Loss -> FocusOutcome.NoProgress
+            RoundResult.Unreviewed -> FocusOutcome.Unreviewed
         }
+        val reflection = listOf(
+            review.wentWell.trim(),
+            review.problemDescription.trim(),
+            review.nextCall.trim()
+        ).filter { it.isNotBlank() }.joinToString("\\n")
+        dao.updateSession(
+            session.copy(
+                outcome = legacyOutcome.storageValue,
+                roundResult = review.result.storageValue,
+                focusQuality = review.focusQuality.storageValue,
+                wentWell = review.wentWell.trim().take(500),
+                problemDescription = review.problemDescription.trim().take(500),
+                nextCall = review.nextCall.trim().take(300),
+                distractionCount = review.distractionCount.coerceIn(0, 99),
+                reflection = reflection.take(1200)
+            )
+        )
     }
 
     private suspend fun fetchOnlineQuote(): QuotePayload? = withContext(Dispatchers.IO) {
@@ -235,7 +270,7 @@ class StudyRepository(private val dao: StudyDao) {
             connectTimeout = 4_000
             readTimeout = 4_000
             setRequestProperty("Accept", "application/json")
-            setRequestProperty("User-Agent", "Liandu/1.5.11 (Android)")
+            setRequestProperty("User-Agent", "LockIn/1.7.0 (Android)")
         }
 
         try {
@@ -270,6 +305,7 @@ class StudyRepository(private val dao: StudyDao) {
                 themeAccent = themeAccent,
                 tasks = dao.allTasksOnce(),
                 sessions = dao.allSessionsOnce(),
+                dailyMatches = dao.allDailyMatchesOnce(),
                 countdownEvents = dao.allCountdownEventsOnce(),
                 dailyQuotes = dao.allDailyQuotesOnce(),
                 aiAnalyses = dao.allAnalysesOnce()

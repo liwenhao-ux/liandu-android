@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.qingxue.data.FocusEndReason
 import com.example.qingxue.data.FocusOutcome
+import com.example.qingxue.data.FocusQuality
+import com.example.qingxue.data.RoundResult
 import com.example.qingxue.data.FocusSessionEntity
 import com.example.qingxue.data.HabitProgressCalculator
 import com.example.qingxue.data.StudyTaskEntity
@@ -129,12 +131,12 @@ internal fun FocusHistoryScreen(
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricCard("总专注", formatDuration(totalSeconds), Modifier.weight(1f))
-                MetricCard("完成局", "$completedCount/${sessions.size}", Modifier.weight(1f))
+                MetricCard("有效回合", "$completedCount/${sessions.size}", Modifier.weight(1f))
             }
         }
-        item { Text("专注记录", fontWeight = FontWeight.SemiBold, fontSize = 18.sp) }
+        item { Text("回合记录", fontWeight = FontWeight.SemiBold, fontSize = 18.sp) }
         if (sessions.isEmpty()) {
-            item { DetailCard { MutedText("这个范围内还没有专注记录。") } }
+            item { DetailCard { MutedText("这个范围内还没有回合记录。") } }
         } else {
             items(sessions, key = { "history-${it.id}" }) { session ->
                 SessionCard(
@@ -424,6 +426,7 @@ private fun SessionCard(
     onClick: (() -> Unit)? = null
 ) {
     val outcome = FocusOutcome.fromStorage(session.outcome)
+    val roundResult = RoundResult.fromStorage(session.roundResult)
     val completed = session.endReason == FocusEndReason.Completed.storageValue
     DetailCard(
         modifier = if (onClick != null) Modifier.fillMaxWidth().clickable(onClick = onClick) else Modifier.fillMaxWidth()
@@ -450,10 +453,22 @@ private fun SessionCard(
                 " · 计划 ${session.plannedMinutes} 分钟" +
                 if (session.pauseCount > 0) " · 暂停 ${session.pauseCount} 次" else ""
         )
-        if (outcome != FocusOutcome.Unreviewed) {
+        if (session.winCondition.isNotBlank()) {
+            Spacer(Modifier.height(6.dp))
+            MutedText("胜利条件：${session.winCondition}")
+        }
+        if (roundResult != RoundResult.Unreviewed) {
             Spacer(Modifier.height(4.dp))
             Text(
-                "结算：${outcome.label}",
+                "ROUND · ${roundResult.label}",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        } else if (outcome != FocusOutcome.Unreviewed) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "历史结算：${outcome.label}",
                 color = MaterialTheme.colorScheme.tertiary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium
@@ -530,6 +545,8 @@ private fun SessionDetailPopup(
     val endTime = Instant.ofEpochMilli(session.endedAt).atZone(zone).toLocalTime()
     val date = Instant.ofEpochMilli(session.startedAt).atZone(zone).toLocalDate()
     val outcome = FocusOutcome.fromStorage(session.outcome)
+    val roundResult = RoundResult.fromStorage(session.roundResult)
+    val quality = FocusQuality.fromStorage(session.focusQuality)
     var reflection by rememberSaveable(key = session.id.toString()) { mutableStateOf(session.reflection) }
 
     AlertDialog(
@@ -547,14 +564,26 @@ private fun SessionDetailPopup(
                         " · ${if (session.endReason == "COMPLETED") "自然完成" else "提前结束"}",
                     fontSize = 13.sp
                 )
-                if (outcome != FocusOutcome.Unreviewed) {
-                    Text("结算：${outcome.label}", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                if (roundResult != RoundResult.Unreviewed) {
+                    Text(
+                        "${roundResult.label} · 专注质量 ${quality.label}",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                } else if (outcome != FocusOutcome.Unreviewed) {
+                    Text("历史结算：${outcome.label}", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
                 }
+                if (session.winCondition.isNotBlank()) MutedText("胜利条件：${session.winCondition}")
+                if (session.wentWell.isNotBlank()) MutedText("做得好：${session.wentWell}")
+                if (session.problemDescription.isNotBlank()) MutedText("问题：${session.problemDescription}")
+                if (session.nextCall.isNotBlank()) MutedText("Next Call：${session.nextCall}")
+                if (session.distractionCount > 0) MutedText("分心 ${session.distractionCount} 次")
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
                     value = reflection,
                     onValueChange = { reflection = it.take(500) },
-                    label = { Text("专注感受") },
+                    label = { Text("补充说明") },
                     placeholder = { Text("效率、难度、精力、情绪、环境…") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,

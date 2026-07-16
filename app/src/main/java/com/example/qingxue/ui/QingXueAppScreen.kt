@@ -150,11 +150,9 @@ import com.example.qingxue.ai.ApiKeyManager
 import com.example.qingxue.data.AiAnalysisEntity
 import com.example.qingxue.data.CountdownEventEntity
 import com.example.qingxue.data.DailyQuoteEntity
-import com.example.qingxue.data.FocusOutcome
 import com.example.qingxue.data.StudyTaskEntity
 import com.example.qingxue.data.StudyTaskType
 import com.example.qingxue.focus.FocusTimerState
-import com.example.qingxue.focus.PendingFocusSettlement
 import com.example.qingxue.focus.PomodoroPhase
 import com.example.qingxue.music.MusicController
 import com.example.qingxue.music.MusicState
@@ -237,6 +235,7 @@ fun QingXueAppScreen(
     var pendingTaskHabitId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editingCountdown by remember { mutableStateOf<CountdownEventEntity?>(null) }
     var showAppSettings by rememberSaveable { mutableStateOf(false) }
+    var showRoundPicker by rememberSaveable { mutableStateOf(false) }
     var apiKeyInput by rememberSaveable { mutableStateOf(ApiKeyManager.getApiKey(context)) }
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -298,7 +297,7 @@ fun QingXueAppScreen(
                             text = when (detailDestination) {
                                 DetailDestination.Form -> "FORM 详情"
                                 DetailDestination.Archive -> "归档任务"
-                                DetailDestination.FocusHistory -> "专注历史"
+                                DetailDestination.FocusHistory -> "Match History"
                                 is DetailDestination.Task -> {
                                     val destination = detailDestination as DetailDestination.Task
                                     val selected = history.tasks.firstOrNull {
@@ -380,7 +379,10 @@ fun QingXueAppScreen(
                         tasks = history.tasks.filter { it.isArchived },
                         onRestore = viewModel::restoreTask
                     )
-                    DetailDestination.FocusHistory -> FocusHistoryScreen(history = history)
+                    DetailDestination.FocusHistory -> FocusHistoryScreen(
+                        history = history,
+                        onSaveReflection = viewModel::saveReflection
+                    )
                     is DetailDestination.Task -> {
                         val task = history.tasks.firstOrNull { it.id == detail.taskId }
                         if (task == null) {
@@ -413,7 +415,8 @@ fun QingXueAppScreen(
                             onOpenFormDetails = {
                                 detailDestination = DetailDestination.Form
                             },
-                            onStartFocus = {
+                            onChooseDailyMatch = { showRoundPicker = true },
+                            onStartFocus = { requestedTaskId ->
                                 selectedTaskId = if (
                                     focusTimerState.isRunning ||
                                     focusTimerState.activeTaskId != null ||
@@ -421,7 +424,9 @@ fun QingXueAppScreen(
                                 ) {
                                     focusTimerState.activeTaskId ?: focusTimerState.activeHabitId
                                 } else {
-                                    state.todayTasks.firstOrNull { !it.completed }?.id
+                                    requestedTaskId
+                                        ?: state.dailyMatch?.mainTaskId
+                                        ?: state.todayTasks.firstOrNull { !it.completed }?.id
                                 }
                                 currentScreen = Screen.Focus
                             },
@@ -447,13 +452,14 @@ fun QingXueAppScreen(
                         )
                         Screen.Focus -> FocusScreen(
                             tasks = state.todayTasks,
+                            suggestedObjective = state.dailyMatch?.manualObjective.orEmpty(),
                             selectedTaskId = selectedTaskId,
                             onSelectTask = { selectedTaskId = it },
                             timerState = focusTimerState,
                             onSetConfig = viewModel::setPomodoroConfig,
-                            onStart = { focusMinutes, breakMinutes, cycles ->
+                            onStart = { focusMinutes, breakMinutes, cycles, winCondition ->
                                 viewModel.setPomodoroConfig(focusMinutes, breakMinutes, cycles)
-                                viewModel.startFocusTimer(selectedTaskId)
+                                viewModel.startFocusTimer(selectedTaskId, winCondition)
                             },
                             onPause = viewModel::pauseFocusTimer,
                             onEnd = viewModel::endFocusTimer,
@@ -474,6 +480,14 @@ fun QingXueAppScreen(
         }
     }
 
+    if (showRoundPicker) {
+        TodayRoundPickerDialog(
+            current = state.dailyMatch,
+            tasks = state.todayTasks,
+            onDismiss = { showRoundPicker = false },
+            onSave = viewModel::setDailyMatch
+        )
+    }
     if (showAppSettings) {
         AppSettingsDialog(
             selectedAccent = selectedAccent,
@@ -484,7 +498,7 @@ fun QingXueAppScreen(
                 ApiKeyManager.saveApiKey(context, it.trim())
             },
             onExportData = {
-                exportLauncher.launch("liandu-backup-${LocalDate.now()}.json")
+                exportLauncher.launch("lock-in-backup-${LocalDate.now()}.json")
             },
             onImportData = { importLauncher.launch(arrayOf("application/json", "text/plain")) },
             onOpenArchive = {
@@ -499,9 +513,9 @@ fun QingXueAppScreen(
     }
 
     pendingSettlement?.let { settlement ->
-        FocusSettlementDialog(
+        DemoReviewDialog(
             settlement = settlement,
-            onOutcome = { outcome -> viewModel.settleFocusSession(outcome, "") },
+            onSave = viewModel::settleFocusSession,
             onSkip = { viewModel.skipFocusSettlement("") }
         )
     }
@@ -759,7 +773,8 @@ private fun ThemeAccentOption(
 private fun HomeScreen(
     state: DashboardState,
     onOpenFormDetails: () -> Unit,
-    onStartFocus: () -> Unit,
+    onChooseDailyMatch: () -> Unit,
+    onStartFocus: (Long?) -> Unit,
     onToggleTask: (StudyTaskEntity) -> Unit,
     onEditTask: (StudyTaskEntity) -> Unit,
     onAddCountdown: (String, String, String, Boolean) -> Unit,
@@ -787,7 +802,16 @@ private fun HomeScreen(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item { SummaryHeader(state = state, onStartFocus = onStartFocus) }
+        item {
+            TodayRoundCard(
+                match = state.dailyMatch,
+                tasks = state.todayTasks,
+                sessions = state.todaySessions,
+                onChoose = onChooseDailyMatch,
+                onStart = onStartFocus
+            )
+        }
+        item { ComebackReminderCard() }
 
         item { SectionTitle("今日任务") }
         if (orderedTasks.isEmpty()) {
@@ -1117,7 +1141,7 @@ private fun CountdownRow(
 
 @Composable
 private fun DailyQuoteLine(quote: DailyQuoteEntity) {
-    val source = if (quote.source == "轻学" || quote.source == "练度") "" else "  ·  ${quote.source}"
+    val source = if (quote.source in setOf("轻学", "练度", "LOCK IN")) "" else "  ·  ${quote.source}"
     Text(
         text = "“${quote.text}”$source",
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 18.dp),
@@ -1160,77 +1184,6 @@ private fun showCountdownDatePicker(
             .toInstant()
             .toEpochMilli()
     }.show()
-}
-
-@Composable
-private fun SummaryHeader(state: DashboardState, onStartFocus: () -> Unit) {
-    val progressPercent = (state.todayProgress * 100).toInt()
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Box(Modifier.fillMaxWidth().asiimovPattern()) {
-            Column(Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "今日练度",
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                        fontSize = 13.sp
-                    )
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = "${state.todayFocusMinutes}",
-                            fontSize = 42.sp,
-                            lineHeight = 48.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            " 分钟",
-                            modifier = Modifier.padding(bottom = 7.dp),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Text(
-                        "已完成 ${state.completedToday}/${state.totalToday} 个任务",
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.76f),
-                        fontSize = 13.sp
-                    )
-                }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(76.dp)
-                ) {
-                    CircularProgressIndicator(
-                        progress = { state.todayProgress },
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        strokeWidth = 8.dp
-                    )
-                    Text(
-                        "$progressPercent%",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = onStartFocus, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("开始专注")
-            }
-            }
-        }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1482,11 +1435,12 @@ private fun HabitPicker(
 @Composable
 private fun FocusScreen(
     tasks: List<StudyTaskEntity>,
+    suggestedObjective: String,
     selectedTaskId: Long?,
     onSelectTask: (Long?) -> Unit,
     timerState: FocusTimerState,
     onSetConfig: (Int, Int, Int) -> Unit,
-    onStart: (Int, Int, Int) -> Unit,
+    onStart: (Int, Int, Int, String) -> Unit,
     onPause: () -> Unit,
     onEnd: () -> Unit,
     onLeaveImmersive: () -> Unit
@@ -1511,6 +1465,8 @@ private fun FocusScreen(
     var breakInput by rememberSaveable { mutableStateOf(timerState.breakMinutes.toString()) }
     var cyclesInput by rememberSaveable { mutableStateOf(timerState.totalCycles.toString()) }
     var showFocusSetup by rememberSaveable { mutableStateOf(false) }
+    var showPreRound by rememberSaveable { mutableStateOf(false) }
+    var requestedWinCondition by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(
         timerState.focusMinutes,
@@ -1530,28 +1486,41 @@ private fun FocusScreen(
     val breakValue = breakInput.validInt(1..60)
     val cyclesValue = cyclesInput.validInt(1..8)
     val configValid = focusValue != null && breakValue != null && cyclesValue != null
-    val selectedTaskTitle = tasks.firstOrNull { it.id == selectedTaskId }?.title ?: "自由专注"
-    val startOrResume = {
+    val selectedTaskTitle = tasks.firstOrNull { it.id == selectedTaskId }?.title
+        ?: suggestedObjective.takeIf { it.isNotBlank() }
+        ?: "自由专注"
+    val executeStart: (String) -> Unit = { condition ->
         if (configValid) {
-            onStart(checkNotNull(focusValue), checkNotNull(breakValue), checkNotNull(cyclesValue))
+            onStart(
+                checkNotNull(focusValue),
+                checkNotNull(breakValue),
+                checkNotNull(cyclesValue),
+                condition
+            )
         }
     }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) {
-        startOrResume()
+    ) { granted ->
+        if (granted) executeStart(requestedWinCondition)
     }
-    val toggleTimer = {
-        if (timerState.isRunning) {
-            onPause()
-        } else if (
+    val requestStart: (String) -> Unit = { condition ->
+        requestedWinCondition = condition
+        if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            startOrResume()
+            executeStart(condition)
+        }
+    }
+    val toggleTimer = {
+        when {
+            timerState.isRunning -> onPause()
+            timerState.hasStarted -> requestStart(timerState.winCondition)
+            else -> showPreRound = true
         }
     }
 
@@ -1641,41 +1610,50 @@ private fun FocusScreen(
                 }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        onClick = toggleTimer,
-                        enabled = timerState.isRunning || timerState.hasStarted || configValid
-                    ) {
-                        Text(
-                            when {
-                                timerState.isRunning -> "暂停"
-                                timerState.hasStarted -> "继续"
-                                else -> "开始"
-                            }
-                        )
-                    }
-                    OutlinedButton(onClick = onEnd, enabled = timerState.hasStarted) {
-                        Text("结束")
-                    }
-                }
-            }
-            item {
                 MusicSection(state = musicState, controller = musicController)
             }
             item { Spacer(Modifier.height(72.dp)) }
         }
 
-            FloatingActionButton(
-                onClick = { showFocusSetup = true },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Filled.Tune, contentDescription = "专注设置")
+                Button(
+                    onClick = toggleTimer,
+                    enabled = configValid,
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Start Round")
+                }
+                FloatingActionButton(
+                    onClick = { showFocusSetup = true },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ) {
+                    Icon(Icons.Filled.Tune, contentDescription = "专注设置")
+                }
             }
         }
     }
 
+    if (showPreRound) {
+        PreRoundDialog(
+            initialWinCondition = selectedTaskTitle,
+            onDismiss = { showPreRound = false },
+            onAdjust = { showFocusSetup = true },
+            onStart = { condition ->
+                showPreRound = false
+                requestStart(condition)
+            }
+        )
+    }
     if (showFocusSetup) {
         AlertDialog(
             onDismissRequest = { showFocusSetup = false },
@@ -1824,7 +1802,7 @@ private fun ImmersiveFocusContent(
                 )
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "第 ${timerState.currentCycle}/${timerState.totalCycles} 轮 · ${timerState.phase.label}",
+                    text = "ROUND ${timerState.currentCycle}/${timerState.totalCycles} · ${timerState.phase.label}",
                     color = indicatorColor,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -1854,10 +1832,10 @@ private fun ImmersiveFocusContent(
                             contentDescription = null
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text(if (timerState.isRunning) "暂停" else "继续")
+                        Text(if (timerState.isRunning) "Tactical Pause" else "继续回合")
                     }
                     OutlinedButton(onClick = onEnd) {
-                        Text("结束")
+                        Text("End Round")
                     }
                 }
             }
@@ -2244,7 +2222,7 @@ private fun StatsScreen(
                     BrandMark(Modifier.size(36.dp))
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("专注历史", fontWeight = FontWeight.SemiBold)
+                        Text("Match History", fontWeight = FontWeight.SemiBold)
                         Text(
                             "查看每一局、累计时长与任务筛选",
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f),
@@ -2253,7 +2231,7 @@ private fun StatsScreen(
                     }
                     Icon(
                         Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "查看专注历史"
+                        contentDescription = "查看 Match History"
                     )
                 }
             }
@@ -2828,48 +2806,6 @@ private fun CountdownEditDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("取消")
-            }
-        }
-    )
-}
-
-@Composable
-private fun FocusSettlementDialog(
-    settlement: PendingFocusSettlement,
-    onOutcome: (FocusOutcome) -> Unit,
-    onSkip: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onSkip,
-        title = { Text("本局结算") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = settlement.taskTitle ?: "未绑定任务",
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${settlement.actualMinutes} 分钟 · " +
-                        if (settlement.completedTimer) "自然完成" else "提前结束",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
-                    fontSize = 13.sp
-                )
-                Spacer(Modifier.height(4.dp))
-                FocusOutcome.reviewOptions.forEach { outcome ->
-                    OutlinedButton(
-                        onClick = { onOutcome(outcome) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(outcome.label)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onSkip) {
-                Text("跳过")
             }
         }
     )

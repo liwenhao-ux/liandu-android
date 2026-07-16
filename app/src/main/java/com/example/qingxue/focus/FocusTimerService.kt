@@ -89,7 +89,8 @@ class FocusTimerService : Service() {
                 pausedRemainingSeconds = focusMinutes * 60,
                 activeTaskId = intent.longExtraOrNull(EXTRA_TASK_ID),
                 activeHabitId = intent.longExtraOrNull(EXTRA_HABIT_ID),
-                activeTaskTitle = intent.getStringExtra(EXTRA_TASK_TITLE)
+                activeTaskTitle = intent.getStringExtra(EXTRA_TASK_TITLE),
+                winCondition = intent.getStringExtra(EXTRA_WIN_CONDITION).orEmpty()
             )
         } else {
             current
@@ -269,6 +270,7 @@ class FocusTimerService : Service() {
             breakMinutes = state.breakMinutes,
             plannedCycles = state.totalCycles,
             completedCycles = state.completedCycles,
+            winCondition = state.winCondition,
             date = todayString()
         )
         if (sessionId > 0L) {
@@ -276,6 +278,7 @@ class FocusTimerService : Service() {
                 PendingFocusSettlement(
                     sessionId = sessionId,
                     taskTitle = state.activeTaskTitle,
+                    winCondition = state.winCondition,
                     actualMinutes = actualSeconds / 60,
                     completedTimer = endReason == FocusEndReason.Completed
                 )
@@ -304,10 +307,10 @@ class FocusTimerService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "专注倒计时（锁屏）",
+            "LOCK IN 回合倒计时",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "在通知栏和锁屏显示当前番茄钟"
+            description = "在通知栏和锁屏显示当前专注回合"
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             setShowBadge(false)
             enableVibration(false)
@@ -329,7 +332,7 @@ class FocusTimerService : Service() {
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_focus)
             .setColor(Color.rgb(27, 111, 99))
-            .setContentTitle("练度 · $statusLabel")
+            .setContentTitle("LOCK IN · $statusLabel")
             .setContentText(if (state.isRunning) detail else "$detail · $staticTime")
             .setSubText(cycleLabel)
             .setContentIntent(openAppPendingIntent())
@@ -374,7 +377,8 @@ class FocusTimerService : Service() {
                 startedAt = System.currentTimeMillis(),
                 endsAt = System.currentTimeMillis() + focusMinutes * 60_000L,
                 pausedRemainingSeconds = focusMinutes * 60,
-                activeTaskTitle = intent.getStringExtra(EXTRA_TASK_TITLE)
+                activeTaskTitle = intent.getStringExtra(EXTRA_TASK_TITLE),
+                winCondition = intent.getStringExtra(EXTRA_WIN_CONDITION).orEmpty()
             )
         )
     }
@@ -382,7 +386,7 @@ class FocusTimerService : Service() {
     private fun buildRestoringNotification(): Notification {
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_focus)
-            .setContentTitle("练度 · 正在恢复番茄钟")
+            .setContentTitle("LOCK IN · 正在恢复番茄钟")
             .setContentIntent(openAppPendingIntent())
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
@@ -395,7 +399,7 @@ class FocusTimerService : Service() {
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_focus)
             .setColor(Color.rgb(27, 111, 99))
-            .setContentTitle("练度 · 专注完成")
+            .setContentTitle("LOCK IN · 专注完成")
             .setContentText(text)
             .setContentIntent(openAppPendingIntent())
             .setCategory(Notification.CATEGORY_REMINDER)
@@ -463,6 +467,7 @@ class FocusTimerService : Service() {
         private const val EXTRA_TASK_ID = "task_id"
         private const val EXTRA_HABIT_ID = "habit_id"
         private const val EXTRA_TASK_TITLE = "task_title"
+        private const val EXTRA_WIN_CONDITION = "win_condition"
 
         @Volatile
         private var serviceRunning = false
@@ -472,7 +477,8 @@ class FocusTimerService : Service() {
             state: FocusTimerState,
             taskId: Long?,
             habitId: Long?,
-            taskTitle: String?
+            taskTitle: String?,
+            winCondition: String
         ) {
             val intent = Intent(context, FocusTimerService::class.java).apply {
                 action = ACTION_START_OR_RESUME
@@ -482,6 +488,7 @@ class FocusTimerService : Service() {
                 taskId?.let { putExtra(EXTRA_TASK_ID, it) }
                 habitId?.let { putExtra(EXTRA_HABIT_ID, it) }
                 putExtra(EXTRA_TASK_TITLE, taskTitle)
+                putExtra(EXTRA_WIN_CONDITION, winCondition)
             }
             if (serviceRunning) context.startService(intent) else context.startForegroundService(intent)
         }

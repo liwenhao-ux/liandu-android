@@ -59,6 +59,7 @@ class FocusTimerStore(context: Context) {
                 ?: preferences.remove(ACTIVE_HABIT_ID)
             state.activeTaskTitle?.let { preferences[ACTIVE_TASK_TITLE] = it }
                 ?: preferences.remove(ACTIVE_TASK_TITLE)
+            preferences[WIN_CONDITION] = state.winCondition
         }
     }
 
@@ -69,6 +70,7 @@ class FocusTimerStore(context: Context) {
             preferences[PENDING_COMPLETED] = settlement.completedTimer
             settlement.taskTitle?.let { preferences[PENDING_TASK_TITLE] = it }
                 ?: preferences.remove(PENDING_TASK_TITLE)
+            preferences[PENDING_WIN_CONDITION] = settlement.winCondition
         }
     }
 
@@ -76,6 +78,7 @@ class FocusTimerStore(context: Context) {
         dataStore.edit { preferences ->
             preferences.remove(PENDING_SESSION_ID)
             preferences.remove(PENDING_TASK_TITLE)
+            preferences.remove(PENDING_WIN_CONDITION)
             preferences.remove(PENDING_ACTUAL_MINUTES)
             preferences.remove(PENDING_COMPLETED)
         }
@@ -101,6 +104,7 @@ class FocusTimerStore(context: Context) {
             activeTaskId = preferences[ACTIVE_TASK_ID],
             activeHabitId = preferences[ACTIVE_HABIT_ID],
             activeTaskTitle = preferences[ACTIVE_TASK_TITLE],
+            winCondition = preferences[WIN_CONDITION].orEmpty(),
             pauseCount = preferences[PAUSE_COUNT] ?: 0,
             pausedSeconds = preferences[PAUSED_SECONDS] ?: 0,
             pausedAt = preferences[PAUSED_AT] ?: 0L
@@ -112,6 +116,7 @@ class FocusTimerStore(context: Context) {
         return PendingFocusSettlement(
             sessionId = sessionId,
             taskTitle = preferences[PENDING_TASK_TITLE],
+            winCondition = preferences[PENDING_WIN_CONDITION].orEmpty(),
             actualMinutes = preferences[PENDING_ACTUAL_MINUTES] ?: 0,
             completedTimer = preferences[PENDING_COMPLETED] ?: false
         )
@@ -132,11 +137,13 @@ class FocusTimerStore(context: Context) {
         val ACTIVE_TASK_ID = longPreferencesKey("active_task_id")
         val ACTIVE_HABIT_ID = longPreferencesKey("active_habit_id")
         val ACTIVE_TASK_TITLE = stringPreferencesKey("active_task_title")
+        val WIN_CONDITION = stringPreferencesKey("win_condition")
         val PAUSE_COUNT = intPreferencesKey("pause_count")
         val PAUSED_SECONDS = intPreferencesKey("paused_seconds")
         val PAUSED_AT = longPreferencesKey("paused_at")
         val PENDING_SESSION_ID = longPreferencesKey("pending_session_id")
         val PENDING_TASK_TITLE = stringPreferencesKey("pending_task_title")
+        val PENDING_WIN_CONDITION = stringPreferencesKey("pending_win_condition")
         val PENDING_ACTUAL_MINUTES = intPreferencesKey("pending_actual_minutes")
         val PENDING_COMPLETED = booleanPreferencesKey("pending_completed")
     }

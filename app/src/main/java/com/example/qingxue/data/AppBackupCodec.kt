@@ -7,13 +7,14 @@ data class AppBackupData(
     val themeAccent: String?,
     val tasks: List<StudyTaskEntity>,
     val sessions: List<FocusSessionEntity>,
+    val dailyMatches: List<DailyMatchEntity> = emptyList(),
     val countdownEvents: List<CountdownEventEntity>,
     val dailyQuotes: List<DailyQuoteEntity>,
     val aiAnalyses: List<AiAnalysisEntity>
 )
 
 object AppBackupCodec {
-    private const val SCHEMA_VERSION = 1
+    private const val SCHEMA_VERSION = 2
     private const val APP_ID = "com.example.qingxue"
 
     fun encode(data: AppBackupData): String {
@@ -24,6 +25,9 @@ object AppBackupCodec {
             putNullable("themeAccent", data.themeAccent)
             put("tasks", JSONArray().apply { data.tasks.forEach { put(it.toJson()) } })
             put("sessions", JSONArray().apply { data.sessions.forEach { put(it.toJson()) } })
+            put("dailyMatches", JSONArray().apply {
+                data.dailyMatches.forEach { put(it.toJson()) }
+            })
             put("countdownEvents", JSONArray().apply {
                 data.countdownEvents.forEach { put(it.toJson()) }
             })
@@ -34,14 +38,16 @@ object AppBackupCodec {
 
     fun decode(text: String): AppBackupData {
         val root = JSONObject(text)
-        require(root.optString("appId") == APP_ID) { "Not a Liandu backup" }
-        require(root.optInt("schemaVersion", -1) == SCHEMA_VERSION) {
+        require(root.optString("appId") == APP_ID) { "Not a LOCK IN backup" }
+        val schemaVersion = root.optInt("schemaVersion", -1)
+        require(schemaVersion in 1..SCHEMA_VERSION) {
             "Unsupported backup version"
         }
         return AppBackupData(
             themeAccent = root.stringOrNull("themeAccent"),
             tasks = root.objects("tasks").map { it.toTask() },
             sessions = root.objects("sessions").map { it.toSession() },
+            dailyMatches = root.objects("dailyMatches").map { it.toDailyMatch() },
             countdownEvents = root.objects("countdownEvents").map { it.toCountdownEvent() },
             dailyQuotes = root.objects("dailyQuotes").map { it.toDailyQuote() },
             aiAnalyses = root.objects("aiAnalyses").map { it.toAiAnalysis() }
@@ -84,8 +90,23 @@ object AppBackupCodec {
         put("plannedCycles", plannedCycles)
         put("completedCycles", completedCycles)
         put("reflection", reflection)
+        put("winCondition", winCondition)
+        put("roundResult", roundResult)
+        put("focusQuality", focusQuality)
+        put("wentWell", wentWell)
+        put("problemDescription", problemDescription)
+        put("nextCall", nextCall)
+        put("distractionCount", distractionCount)
     }
 
+    private fun DailyMatchEntity.toJson() = JSONObject().apply {
+        put("date", date)
+        putNullable("mainTaskId", mainTaskId)
+        put("manualObjective", manualObjective)
+        put("plannedRounds", plannedRounds)
+        put("userNote", userNote)
+        put("createdAt", createdAt)
+    }
     private fun CountdownEventEntity.toJson() = JSONObject().apply {
         put("id", id)
         put("title", title)
@@ -150,9 +171,24 @@ object AppBackupCodec {
         breakMinutes = optInt("breakMinutes"),
         plannedCycles = optInt("plannedCycles", 1),
         completedCycles = optInt("completedCycles"),
-        reflection = optString("reflection")
+        reflection = optString("reflection"),
+        winCondition = optString("winCondition"),
+        roundResult = optString("roundResult", RoundResult.Unreviewed.storageValue),
+        focusQuality = optString("focusQuality", FocusQuality.Unreviewed.storageValue),
+        wentWell = optString("wentWell"),
+        problemDescription = optString("problemDescription"),
+        nextCall = optString("nextCall"),
+        distractionCount = optInt("distractionCount")
     )
 
+    private fun JSONObject.toDailyMatch() = DailyMatchEntity(
+        date = getString("date"),
+        mainTaskId = longOrNull("mainTaskId"),
+        manualObjective = optString("manualObjective"),
+        plannedRounds = optInt("plannedRounds", 2),
+        userNote = optString("userNote"),
+        createdAt = optLong("createdAt", System.currentTimeMillis())
+    )
     private fun JSONObject.toCountdownEvent() = CountdownEventEntity(
         id = getLong("id"),
         title = getString("title"),

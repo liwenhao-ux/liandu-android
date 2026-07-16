@@ -31,6 +31,11 @@ interface StudyDao {
 
     @Query("SELECT * FROM focus_sessions ORDER BY startedAt DESC")
     suspend fun allSessionsOnce(): List<FocusSessionEntity>
+    @Query("SELECT * FROM daily_matches WHERE date = :date LIMIT 1")
+    fun dailyMatch(date: String): Flow<DailyMatchEntity?>
+
+    @Query("SELECT * FROM daily_matches ORDER BY date ASC")
+    suspend fun allDailyMatchesOnce(): List<DailyMatchEntity>
 
     @Query("SELECT * FROM countdown_events ORDER BY targetDate ASC, createdAt ASC")
     fun countdownEvents(): Flow<List<CountdownEventEntity>>
@@ -91,6 +96,12 @@ interface StudyDao {
     @Query("UPDATE study_tasks SET habitId = NULL WHERE habitId = :habitId")
     suspend fun clearHabitFromTasks(habitId: Long)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDailyMatch(match: DailyMatchEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDailyMatches(matches: List<DailyMatchEntity>)
+
     @Insert
     suspend fun insertSession(session: FocusSessionEntity): Long
 
@@ -130,6 +141,9 @@ interface StudyDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAnalyses(analyses: List<AiAnalysisEntity>)
 
+    @Query("DELETE FROM daily_matches")
+    suspend fun deleteAllDailyMatches()
+
     @Query("DELETE FROM focus_sessions")
     suspend fun deleteAllSessions()
 
@@ -151,12 +165,14 @@ interface StudyDao {
     @Transaction
     suspend fun replaceAllData(backup: AppBackupData) {
         deleteAllSessions()
+        deleteAllDailyMatches()
         deleteAllTasks()
         deleteAllCountdownEvents()
         deleteAllDailyQuotes()
         deleteAllAnalyses()
         insertTasks(backup.tasks)
         insertSessions(backup.sessions)
+        insertDailyMatches(backup.dailyMatches)
         insertCountdownEvents(backup.countdownEvents)
         insertDailyQuotes(backup.dailyQuotes)
         insertAnalyses(backup.aiAnalyses)

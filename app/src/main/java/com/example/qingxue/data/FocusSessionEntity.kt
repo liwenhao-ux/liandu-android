@@ -31,6 +31,39 @@ enum class FocusOutcome(
     }
 }
 
+enum class RoundResult(val storageValue: String, val label: String) {
+    Unreviewed("UNREVIEWED", "未复盘"),
+    Win("WIN", "胜利"),
+    PartialWin("PARTIAL_WIN", "部分胜利"),
+    Loss("LOSS", "失利");
+
+    companion object {
+        fun fromStorage(value: String): RoundResult =
+            entries.firstOrNull { it.storageValue == value } ?: Unreviewed
+    }
+}
+
+enum class FocusQuality(val storageValue: String, val label: String) {
+    Unreviewed("UNREVIEWED", "未评价"),
+    Excellent("EXCELLENT", "极佳"),
+    Good("GOOD", "良好"),
+    Unstable("UNSTABLE", "不稳定"),
+    Poor("POOR", "较差");
+
+    companion object {
+        fun fromStorage(value: String): FocusQuality =
+            entries.firstOrNull { it.storageValue == value } ?: Unreviewed
+    }
+}
+
+data class DemoReview(
+    val result: RoundResult,
+    val focusQuality: FocusQuality,
+    val wentWell: String,
+    val problemDescription: String,
+    val nextCall: String,
+    val distractionCount: Int
+)
 @Entity(
     tableName = "focus_sessions",
     indices = [Index(value = ["habitId"])]
@@ -55,5 +88,14 @@ data class FocusSessionEntity(
     @ColumnInfo(defaultValue = "0") val breakMinutes: Int = 0,
     @ColumnInfo(defaultValue = "1") val plannedCycles: Int = 1,
     @ColumnInfo(defaultValue = "0") val completedCycles: Int = 0,
-    @ColumnInfo(defaultValue = "") val reflection: String = ""
+    @ColumnInfo(defaultValue = "") val reflection: String = "",
+    @ColumnInfo(defaultValue = "") val winCondition: String = "",
+    @ColumnInfo(defaultValue = "UNREVIEWED")
+    val roundResult: String = RoundResult.Unreviewed.storageValue,
+    @ColumnInfo(defaultValue = "UNREVIEWED")
+    val focusQuality: String = FocusQuality.Unreviewed.storageValue,
+    @ColumnInfo(defaultValue = "") val wentWell: String = "",
+    @ColumnInfo(defaultValue = "") val problemDescription: String = "",
+    @ColumnInfo(defaultValue = "") val nextCall: String = "",
+    @ColumnInfo(defaultValue = "0") val distractionCount: Int = 0
 )

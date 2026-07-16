@@ -20,6 +20,7 @@ data class FocusTimerState(
     val activeTaskId: Long? = null,
     val activeHabitId: Long? = null,
     val activeTaskTitle: String? = null,
+    val winCondition: String = "",
     val pauseCount: Int = 0,
     val pausedSeconds: Int = 0,
     val pausedAt: Long = 0L
@@ -63,6 +64,7 @@ data class FocusTimerState(
 data class PendingFocusSettlement(
     val sessionId: Long,
     val taskTitle: String?,
+    val winCondition: String,
     val actualMinutes: Int,
     val completedTimer: Boolean
 )
