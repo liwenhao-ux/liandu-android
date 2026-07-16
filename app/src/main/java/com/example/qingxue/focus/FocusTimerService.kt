@@ -31,6 +31,7 @@ class FocusTimerService : Service() {
     private val app: QingXueApp get() = application as QingXueApp
     private val store: FocusTimerStore get() = app.focusTimerStore
     private val repository: StudyRepository get() = app.repository
+    private val haptics by lazy { FocusHaptics(this) }
     private var phaseCompletionJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -111,6 +112,7 @@ class FocusTimerService : Service() {
         )
         store.saveTimerState(updated)
         publish(updated)
+        haptics.play(if (startingFresh) FocusHapticCue.Start else FocusHapticCue.Resume)
     }
 
     private suspend fun pauseTimer() {
@@ -136,6 +138,7 @@ class FocusTimerService : Service() {
         )
         store.saveTimerState(updated)
         publish(updated)
+        haptics.play(FocusHapticCue.Pause)
     }
 
     private suspend fun endTimer() {
@@ -164,6 +167,7 @@ class FocusTimerService : Service() {
             }
         )
         store.saveTimerState(current.resetForNextPlan())
+        haptics.play(FocusHapticCue.End)
         stopTimerService()
     }
 
@@ -212,6 +216,7 @@ class FocusTimerService : Service() {
                 )
                 store.saveTimerState(current.resetForNextPlan())
                 showCompletionNotification(current.activeTaskTitle)
+                haptics.play(FocusHapticCue.PlanComplete)
                 stopTimerService()
             } else {
                 val breakState = finishedState.copy(
@@ -222,6 +227,7 @@ class FocusTimerService : Service() {
                     pausedAt = 0L
                 )
                 store.saveTimerState(breakState)
+                haptics.play(FocusHapticCue.FocusComplete)
                 publish(breakState)
             }
         } else {
@@ -234,6 +240,7 @@ class FocusTimerService : Service() {
                 pausedAt = 0L
             )
             store.saveTimerState(focusState)
+            haptics.play(FocusHapticCue.BreakComplete)
             publish(focusState)
         }
     }

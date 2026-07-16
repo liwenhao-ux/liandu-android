@@ -28,8 +28,8 @@ android {
         applicationId = "com.example.qingxue"
         minSdk = 26
         targetSdk = 35
-        versionCode = 25
-        versionName = "1.6.3"
+        versionCode = 26
+        versionName = "1.6.4"
         buildConfigField("String", "DEEPSEEK_API_KEY", "\"${project.findProperty("deepseek.api.key") ?: ""}\"")
     }
 

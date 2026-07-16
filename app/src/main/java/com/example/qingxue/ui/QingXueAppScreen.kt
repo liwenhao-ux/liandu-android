@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowInsets as AndroidWindowInsets
 import android.view.WindowInsetsController
@@ -128,6 +129,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -2926,6 +2928,7 @@ private fun TaskRow(
     onDelete: (() -> Unit)?
 ) {
     val accentColor = MaterialTheme.colorScheme.primary
+    val view = LocalView.current
     Card(
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
@@ -2948,7 +2951,18 @@ private fun TaskRow(
             Spacer(Modifier.width(6.dp))
             Checkbox(
                 checked = task.completed,
-                onCheckedChange = { onToggle() },
+                onCheckedChange = { completed ->
+                    if (completed) {
+                        view.performHapticFeedback(
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                HapticFeedbackConstants.CONFIRM
+                            } else {
+                                HapticFeedbackConstants.VIRTUAL_KEY
+                            }
+                        )
+                    }
+                    onToggle()
+                },
                 enabled = !task.isHabit
             )
             Column(modifier = Modifier.weight(1f)) {
