@@ -3,122 +3,71 @@ package com.example.qingxue.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 
 @Composable
 internal fun BrandMark(modifier: Modifier = Modifier) {
-    val charcoal = Color(0xFF211D20)
-    val lockInRed = Color(0xFFB33E47)
-    val deepRed = Color(0xFF762631)
-    val face = Color(0xFFFFF1F2)
-    val highlight = Color(0xFFF17A82)
+    val lockInRed = Color(0xFFD62939)
+    val deepRed = Color(0xFF8E1726)
+    val iceWhite = Color(0xFFFFF4F5)
 
     Canvas(modifier = modifier) {
-        val unit = size.minDimension
-        val flame = Path().apply {
-            moveTo(size.width * 0.54f, size.height * 0.04f)
-            cubicTo(
-                size.width * 0.63f, size.height * 0.20f,
-                size.width * 0.82f, size.height * 0.29f,
-                size.width * 0.84f, size.height * 0.52f
-            )
-            cubicTo(
-                size.width * 0.88f, size.height * 0.76f,
-                size.width * 0.72f, size.height * 0.95f,
-                size.width * 0.51f, size.height * 0.97f
-            )
-            cubicTo(
-                size.width * 0.29f, size.height * 0.96f,
-                size.width * 0.14f, size.height * 0.80f,
-                size.width * 0.17f, size.height * 0.58f
-            )
-            cubicTo(
-                size.width * 0.19f, size.height * 0.43f,
-                size.width * 0.30f, size.height * 0.34f,
-                size.width * 0.37f, size.height * 0.21f
-            )
-            cubicTo(
-                size.width * 0.39f, size.height * 0.34f,
-                size.width * 0.45f, size.height * 0.39f,
-                size.width * 0.51f, size.height * 0.41f
-            )
-            cubicTo(
-                size.width * 0.55f, size.height * 0.31f,
-                size.width * 0.57f, size.height * 0.17f,
-                size.width * 0.54f, size.height * 0.04f
-            )
+        val shadow = Path().apply {
+            moveTo(size.width * 0.13f, size.height * 0.21f)
+            lineTo(size.width * 0.53f, size.height * 0.21f)
+            lineTo(size.width * 0.65f, size.height * 0.07f)
+            lineTo(size.width * 0.95f, size.height * 0.07f)
+            lineTo(size.width * 0.79f, size.height * 0.28f)
+            lineTo(size.width * 0.62f, size.height * 0.28f)
+            lineTo(size.width * 0.52f, size.height * 0.40f)
+            lineTo(size.width * 0.82f, size.height * 0.40f)
+            lineTo(size.width * 0.67f, size.height * 0.58f)
+            lineTo(size.width * 0.53f, size.height * 0.58f)
+            lineTo(size.width * 0.53f, size.height * 0.94f)
+            lineTo(size.width * 0.31f, size.height * 0.94f)
+            lineTo(size.width * 0.31f, size.height * 0.69f)
+            lineTo(size.width * 0.07f, size.height * 0.69f)
+            lineTo(size.width * 0.21f, size.height * 0.51f)
+            lineTo(size.width * 0.38f, size.height * 0.51f)
+            lineTo(size.width * 0.48f, size.height * 0.38f)
+            lineTo(size.width * 0.13f, size.height * 0.38f)
             close()
         }
-        drawPath(flame, lockInRed)
+        drawPath(shadow, deepRed)
 
-        val innerFlame = Path().apply {
-            moveTo(size.width * 0.37f, size.height * 0.28f)
-            cubicTo(
-                size.width * 0.36f, size.height * 0.43f,
-                size.width * 0.29f, size.height * 0.49f,
-                size.width * 0.29f, size.height * 0.65f
-            )
-            cubicTo(
-                size.width * 0.29f, size.height * 0.80f,
-                size.width * 0.39f, size.height * 0.89f,
-                size.width * 0.51f, size.height * 0.91f
-            )
-            cubicTo(
-                size.width * 0.43f, size.height * 0.80f,
-                size.width * 0.42f, size.height * 0.68f,
-                size.width * 0.48f, size.height * 0.57f
-            )
-            cubicTo(
-                size.width * 0.40f, size.height * 0.50f,
-                size.width * 0.36f, size.height * 0.41f,
-                size.width * 0.37f, size.height * 0.28f
-            )
+        val mainBlade = Path().apply {
+            moveTo(size.width * 0.09f, size.height * 0.16f)
+            lineTo(size.width * 0.51f, size.height * 0.16f)
+            lineTo(size.width * 0.63f, size.height * 0.03f)
+            lineTo(size.width * 0.93f, size.height * 0.03f)
+            lineTo(size.width * 0.77f, size.height * 0.24f)
+            lineTo(size.width * 0.59f, size.height * 0.24f)
+            lineTo(size.width * 0.49f, size.height * 0.36f)
+            lineTo(size.width * 0.79f, size.height * 0.36f)
+            lineTo(size.width * 0.64f, size.height * 0.54f)
+            lineTo(size.width * 0.49f, size.height * 0.54f)
+            lineTo(size.width * 0.49f, size.height * 0.90f)
+            lineTo(size.width * 0.27f, size.height * 0.90f)
+            lineTo(size.width * 0.27f, size.height * 0.64f)
+            lineTo(size.width * 0.03f, size.height * 0.64f)
+            lineTo(size.width * 0.17f, size.height * 0.46f)
+            lineTo(size.width * 0.35f, size.height * 0.46f)
+            lineTo(size.width * 0.45f, size.height * 0.34f)
+            lineTo(size.width * 0.09f, size.height * 0.34f)
             close()
         }
-        drawPath(innerFlame, deepRed)
+        drawPath(mainBlade, lockInRed)
 
-        drawOval(
-            color = face,
-            topLeft = Offset(size.width * 0.27f, size.height * 0.39f),
-            size = Size(size.width * 0.50f, size.height * 0.39f)
-        )
-        drawLine(
-            color = charcoal,
-            start = Offset(size.width * 0.36f, size.height * 0.55f),
-            end = Offset(size.width * 0.46f, size.height * 0.59f),
-            strokeWidth = unit * 0.055f,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = charcoal,
-            start = Offset(size.width * 0.68f, size.height * 0.55f),
-            end = Offset(size.width * 0.58f, size.height * 0.59f),
-            strokeWidth = unit * 0.055f,
-            cap = StrokeCap.Round
-        )
-        drawArc(
-            color = charcoal,
-            startAngle = 22f,
-            sweepAngle = 136f,
-            useCenter = false,
-            topLeft = Offset(size.width * 0.42f, size.height * 0.63f),
-            size = Size(size.width * 0.20f, size.height * 0.10f),
-            style = Stroke(width = unit * 0.043f, cap = StrokeCap.Round)
-        )
-        drawCircle(
-            color = highlight,
-            radius = unit * 0.045f,
-            center = Offset(size.width * 0.67f, size.height * 0.29f)
-        )
-        drawCircle(
-            color = Color.White.copy(alpha = 0.34f),
-            radius = unit * 0.025f,
-            center = Offset(size.width * 0.66f, size.height * 0.28f)
-        )
+        val lockSlash = Path().apply {
+            moveTo(size.width * 0.62f, size.height * 0.58f)
+            lineTo(size.width * 0.96f, size.height * 0.58f)
+            lineTo(size.width * 0.82f, size.height * 0.75f)
+            lineTo(size.width * 0.70f, size.height * 0.75f)
+            lineTo(size.width * 0.58f, size.height * 0.89f)
+            lineTo(size.width * 0.40f, size.height * 0.89f)
+            close()
+        }
+        drawPath(lockSlash, iceWhite)
     }
 }

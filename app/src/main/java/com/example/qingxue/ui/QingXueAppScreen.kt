@@ -1570,7 +1570,7 @@ private fun FocusScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                        modifier = Modifier.fillMaxWidth().digitalCamoPattern(0.7f).padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -1779,6 +1779,7 @@ private fun ImmersiveFocusContent(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .digitalCamoPattern(if (isFocusPhase) 0.8f else 0.25f)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(horizontal = 24.dp)
         ) {
@@ -2214,7 +2215,7 @@ private fun StatsScreen(
                 ),
                 modifier = Modifier.fillMaxWidth().smoothCardClick(onOpenFocusHistory)
             ) {
-                Box(Modifier.fillMaxWidth().asiimovPattern()) {
+                Box(Modifier.fillMaxWidth().digitalCamoPattern(0.65f)) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -2509,7 +2510,7 @@ private fun FormRatingCard(
         ),
         modifier = Modifier.fillMaxWidth().smoothCardClick(onClick)
     ) {
-        Box(Modifier.fillMaxWidth().asiimovPattern()) {
+        Box(Modifier.fillMaxWidth().digitalCamoPattern(0.65f)) {
             Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -3004,7 +3005,7 @@ private fun StatCard(
         ),
         modifier = modifier
     ) {
-        Box(Modifier.asiimovPattern()) {
+        Box(Modifier.digitalCamoPattern(0.35f)) {
             Column(modifier = Modifier.padding(14.dp)) {
             Box(
                 modifier = Modifier
