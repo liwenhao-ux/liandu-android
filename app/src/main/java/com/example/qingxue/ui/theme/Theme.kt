@@ -26,13 +26,13 @@ enum class AppAccent(
     GrayPurple(
         storageKey = "gray_purple",
         label = "战术红",
-        previewColor = Color(0xFF9A5B5B),
-        lightPrimary = Color(0xFF855151),
-        lightContainer = Color(0xFFF0DEDA),
-        lightOnContainer = Color(0xFF332323),
-        darkPrimary = Color(0xFFD68B80),
-        darkContainer = Color(0xFF503536),
-        darkOnContainer = Color(0xFFFFEDE8)
+        previewColor = Color(0xFFB33E47),
+        lightPrimary = Color(0xFFA2353F),
+        lightContainer = Color(0xFFF2D8DA),
+        lightOnContainer = Color(0xFF35191C),
+        darkPrimary = Color(0xFFDF626A),
+        darkContainer = Color(0xFF52282D),
+        darkOnContainer = Color(0xFFFFECEE)
     ),
     MistGreen(
         storageKey = "mist_green",
