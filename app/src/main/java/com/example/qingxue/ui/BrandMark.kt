@@ -14,39 +14,39 @@ internal fun BrandMark(modifier: Modifier = Modifier) {
 
     Canvas(modifier = modifier) {
         val fStem = Path().apply {
-            moveTo(size.width * 0.51f, size.height * 0.13f)
-            lineTo(size.width * 0.68f, size.height * 0.13f)
-            lineTo(size.width * 0.27f, size.height * 0.90f)
-            lineTo(size.width * 0.10f, size.height * 0.90f)
+            moveTo(size.width * 0.53f, size.height * 0.11f)
+            lineTo(size.width * 0.63f, size.height * 0.11f)
+            lineTo(size.width * 0.35f, size.height * 0.91f)
+            lineTo(size.width * 0.25f, size.height * 0.91f)
             close()
         }
         drawPath(fStem, lockInRed)
 
         val fTopArm = Path().apply {
-            moveTo(size.width * 0.07f, size.height * 0.13f)
-            lineTo(size.width * 0.68f, size.height * 0.13f)
-            lineTo(size.width * 0.59f, size.height * 0.30f)
-            lineTo(size.width * 0.02f, size.height * 0.30f)
+            moveTo(size.width * 0.18f, size.height * 0.11f)
+            lineTo(size.width * 0.63f, size.height * 0.11f)
+            lineTo(size.width * 0.59f, size.height * 0.23f)
+            lineTo(size.width * 0.14f, size.height * 0.23f)
             close()
         }
         drawPath(fTopArm, lockInRed)
 
         val fMiddleArm = Path().apply {
-            moveTo(size.width * 0.13f, size.height * 0.43f)
-            lineTo(size.width * 0.47f, size.height * 0.43f)
-            lineTo(size.width * 0.38f, size.height * 0.60f)
-            lineTo(size.width * 0.07f, size.height * 0.60f)
+            moveTo(size.width * 0.24f, size.height * 0.43f)
+            lineTo(size.width * 0.50f, size.height * 0.43f)
+            lineTo(size.width * 0.46f, size.height * 0.55f)
+            lineTo(size.width * 0.20f, size.height * 0.55f)
             close()
         }
         drawPath(fMiddleArm, lockInRed)
 
         val letterL = Path().apply {
-            moveTo(size.width * 0.76f, size.height * 0.22f)
-            lineTo(size.width * 0.93f, size.height * 0.22f)
-            lineTo(size.width * 0.58f, size.height * 0.78f)
-            lineTo(size.width * 0.99f, size.height * 0.78f)
-            lineTo(size.width * 0.90f, size.height * 0.94f)
-            lineTo(size.width * 0.33f, size.height * 0.94f)
+            moveTo(size.width * 0.67f, size.height * 0.17f)
+            lineTo(size.width * 0.77f, size.height * 0.17f)
+            lineTo(size.width * 0.55f, size.height * 0.79f)
+            lineTo(size.width * 0.87f, size.height * 0.79f)
+            lineTo(size.width * 0.83f, size.height * 0.92f)
+            lineTo(size.width * 0.41f, size.height * 0.92f)
             close()
         }
         drawPath(letterL, letterColor)
