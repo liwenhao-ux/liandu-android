@@ -23,6 +23,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -364,7 +366,25 @@ fun QingXueAppScreen(
         ) {
             AnimatedContent(
                 targetState = detailDestination to currentScreen,
-                transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+                transitionSpec = {
+                    val openingDetail = initialState.first == null && targetState.first != null
+                    val closingDetail = initialState.first != null && targetState.first == null
+                    when {
+                        openingDetail -> {
+                            (slideInHorizontally(tween(220)) { width -> width / 4 } +
+                                fadeIn(tween(160))) togetherWith
+                                (slideOutHorizontally(tween(220)) { width -> -width / 8 } +
+                                    fadeOut(tween(120)))
+                        }
+                        closingDetail -> {
+                            (slideInHorizontally(tween(220)) { width -> -width / 8 } +
+                                fadeIn(tween(160))) togetherWith
+                                (slideOutHorizontally(tween(220)) { width -> width / 4 } +
+                                    fadeOut(tween(120)))
+                        }
+                        else -> fadeIn(tween(160)) togetherWith fadeOut(tween(100))
+                    }
+                },
                 label = "main-screen"
             ) { (detail, screen) ->
                 when (detail) {
@@ -893,7 +913,7 @@ private fun SectionTitleWithAction(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().smoothCardClick(onClick).smoothCardClick(onClick).smoothCardClick(onClick).clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().smoothCardClick(onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -2960,10 +2980,10 @@ private fun Modifier.smoothCardClick(onClick: () -> Unit): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.985f else 1f,
+        targetValue = if (isPressed) 0.982f else 1f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
         ),
         label = "card-press"
     )
