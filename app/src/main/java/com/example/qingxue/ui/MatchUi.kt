@@ -127,7 +127,7 @@ internal fun TodayRoundCard(
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().digitalCamoPattern().padding(18.dp),
+            modifier = Modifier.fillMaxWidth().tacticalCamoPattern().padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
