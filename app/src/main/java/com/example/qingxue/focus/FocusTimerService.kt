@@ -25,6 +25,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class FocusTimerService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -33,6 +35,7 @@ class FocusTimerService : Service() {
     private val repository: StudyRepository get() = app.repository
     private val haptics by lazy { FocusHaptics(this) }
     private var phaseCompletionJob: Job? = null
+    private val phaseTransitionMutex = Mutex()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -178,7 +181,7 @@ class FocusTimerService : Service() {
             stopTimerService()
             return
         }
-        if (state.isRunning && state.endsAt <= System.currentTimeMillis()) {
+        if (state.hasPhaseElapsed()) {
             advancePhase(state.endsAt)
         } else {
             publish(state)
@@ -195,6 +198,12 @@ class FocusTimerService : Service() {
     }
 
     private suspend fun advancePhase(expectedEndsAt: Long) {
+        phaseTransitionMutex.withLock {
+            advancePhaseLocked(expectedEndsAt)
+        }
+    }
+
+    private suspend fun advancePhaseLocked(expectedEndsAt: Long) {
         val current = store.currentTimerState()
         if (!current.isRunning || current.endsAt != expectedEndsAt) return
 
@@ -506,9 +515,8 @@ class FocusTimerService : Service() {
         }
 
         fun restore(context: Context) {
-            context.startForegroundService(
-                Intent(context, FocusTimerService::class.java).setAction(ACTION_RESTORE)
-            )
+            val intent = Intent(context, FocusTimerService::class.java).setAction(ACTION_RESTORE)
+            if (serviceRunning) context.startService(intent) else context.startForegroundService(intent)
         }
 
         fun stop(context: Context) {

@@ -371,23 +371,47 @@ class QingXueViewModel(
         }
     }
 
-    fun startFocusTimer(selectedId: Long?, winCondition: String) {
+    fun startFocusTimer(
+        selectedId: Long?,
+        winCondition: String,
+        focusMinutes: Int,
+        breakMinutes: Int,
+        cycles: Int
+    ) {
         val current = _focusTimerState.value
         if (current.isRunning) return
+        val configured = if (current.hasStarted) {
+            current
+        } else {
+            FocusTimerState(
+                focusMinutes = focusMinutes.coerceIn(1, 120),
+                breakMinutes = breakMinutes.coerceIn(1, 60),
+                totalCycles = cycles.coerceIn(1, 8),
+                pausedRemainingSeconds = focusMinutes.coerceIn(1, 120) * 60
+            )
+        }
         val selected = historyState.value.tasks.firstOrNull { it.id == selectedId }
             ?: dashboardState.value.todayTasks.firstOrNull { it.id == selectedId }
         val taskId = selected?.id?.takeUnless { selected.isHabit }
         val habitId = if (selected?.isHabit == true) selected.id else selected?.habitId
-        FocusTimerService.startOrResume(
-            context = applicationContext,
-            state = current,
-            taskId = taskId,
-            habitId = habitId,
-            taskTitle = selected?.title,
-            winCondition = winCondition.trim().take(160)
-        )
+        viewModelScope.launch {
+            if (!current.hasStarted) focusTimerStore.saveTimerState(configured)
+            FocusTimerService.startOrResume(
+                context = applicationContext,
+                state = configured,
+                taskId = taskId,
+                habitId = habitId,
+                taskTitle = selected?.title,
+                winCondition = winCondition.trim().take(160)
+            )
+        }
     }
 
+    fun reconcileFocusTimer() {
+        if (_focusTimerState.value.hasPhaseElapsed()) {
+            FocusTimerService.restore(applicationContext)
+        }
+    }
     fun pauseFocusTimer() {
         if (_focusTimerState.value.isRunning) FocusTimerService.pause(applicationContext)
     }

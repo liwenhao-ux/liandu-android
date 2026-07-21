@@ -3,6 +3,8 @@ package com.example.qingxue.ui
 import com.example.qingxue.focus.FocusTimerState
 import com.example.qingxue.focus.PomodoroPhase
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FocusTimerStateTest {
@@ -59,5 +61,20 @@ class FocusTimerStateTest {
         )
 
         assertEquals(25 * 60, state.actualFocusSeconds(nowMillis = 120_001L))
+    }
+
+    @Test
+    fun runningPhaseReportsElapsedAtItsDeadline() {
+        val state = FocusTimerState(isRunning = true, startedAt = 1L, endsAt = 10_000L)
+
+        assertFalse(state.hasPhaseElapsed(nowMillis = 9_999L))
+        assertTrue(state.hasPhaseElapsed(nowMillis = 10_000L))
+    }
+
+    @Test
+    fun pausedPhaseNeverRequestsReconciliation() {
+        val state = FocusTimerState(isRunning = false, startedAt = 1L, endsAt = 10_000L)
+
+        assertFalse(state.hasPhaseElapsed(nowMillis = 20_000L))
     }
 }

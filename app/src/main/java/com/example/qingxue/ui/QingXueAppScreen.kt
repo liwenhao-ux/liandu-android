@@ -479,9 +479,15 @@ fun QingXueAppScreen(
                             timerState = focusTimerState,
                             onSetConfig = viewModel::setPomodoroConfig,
                             onStart = { focusMinutes, breakMinutes, cycles, winCondition ->
-                                viewModel.setPomodoroConfig(focusMinutes, breakMinutes, cycles)
-                                viewModel.startFocusTimer(selectedTaskId, winCondition)
+                                viewModel.startFocusTimer(
+                                    selectedTaskId,
+                                    winCondition,
+                                    focusMinutes,
+                                    breakMinutes,
+                                    cycles
+                                )
                             },
+                            onPhaseElapsed = viewModel::reconcileFocusTimer,
                             onPause = viewModel::pauseFocusTimer,
                             onEnd = viewModel::endFocusTimer,
                             onLeaveImmersive = { currentScreen = Screen.Home }
@@ -1462,6 +1468,7 @@ private fun FocusScreen(
     timerState: FocusTimerState,
     onSetConfig: (Int, Int, Int) -> Unit,
     onStart: (Int, Int, Int, String) -> Unit,
+    onPhaseElapsed: () -> Unit,
     onPause: () -> Unit,
     onEnd: () -> Unit,
     onLeaveImmersive: () -> Unit
@@ -1549,6 +1556,10 @@ private fun FocusScreen(
         now = System.currentTimeMillis()
         while (timerState.isRunning) {
             now = System.currentTimeMillis()
+            if (timerState.hasPhaseElapsed(now)) {
+                onPhaseElapsed()
+                break
+            }
             delay(1000)
         }
     }

@@ -41,6 +41,9 @@ data class FocusTimerState(
             .coerceIn(0, phaseTotalSeconds)
     }
 
+    fun hasPhaseElapsed(nowMillis: Long = System.currentTimeMillis()): Boolean =
+        isRunning && endsAt > 0L && nowMillis >= endsAt
+
     fun actualFocusSeconds(nowMillis: Long = System.currentTimeMillis()): Int {
         val currentBlockSeconds = if (hasStarted && phase == PomodoroPhase.Focus) {
             phaseTotalSeconds - remainingSeconds(nowMillis)
