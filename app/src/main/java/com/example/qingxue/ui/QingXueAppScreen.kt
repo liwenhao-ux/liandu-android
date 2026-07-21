@@ -162,6 +162,7 @@ import com.example.qingxue.rating.FormRatingSummary
 import com.example.qingxue.ui.theme.AppAccent
 import com.example.qingxue.util.fullDateLabel
 import com.example.qingxue.util.shortDateLabel
+import com.example.qingxue.util.studyDate
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.ZoneId
@@ -518,7 +519,7 @@ fun QingXueAppScreen(
                 ApiKeyManager.saveApiKey(context, it.trim())
             },
             onExportData = {
-                exportLauncher.launch("lock-in-backup-${LocalDate.now()}.json")
+                exportLauncher.launch("lock-in-backup-${studyDate()}.json")
             },
             onImportData = { importLauncher.launch(arrayOf("application/json", "text/plain")) },
             onOpenArchive = {
@@ -807,7 +808,7 @@ private fun HomeScreen(
     var eventTitle by rememberSaveable { mutableStateOf("") }
     var eventDescription by rememberSaveable { mutableStateOf("") }
     var eventDate by rememberSaveable {
-        mutableStateOf(LocalDate.now().plusDays(30).toString())
+        mutableStateOf(studyDate().plusDays(30).toString())
     }
     var eventPinned by rememberSaveable { mutableStateOf(false) }
 
@@ -875,7 +876,7 @@ private fun HomeScreen(
                         onAddCountdown(eventTitle, eventDate, eventDescription, eventPinned)
                         eventTitle = ""
                         eventDescription = ""
-                        eventDate = LocalDate.now().plusDays(30).toString()
+                        eventDate = studyDate().plusDays(30).toString()
                         eventPinned = false
                         showCountdownForm = false
                     }
@@ -1188,7 +1189,7 @@ private fun showCountdownDatePicker(
     selectedDate: String,
     onDateSelected: (String) -> Unit
 ) {
-    val today = LocalDate.now()
+    val today = studyDate()
     val selected = runCatching { LocalDate.parse(selectedDate) }.getOrDefault(today)
     DatePickerDialog(
         context,

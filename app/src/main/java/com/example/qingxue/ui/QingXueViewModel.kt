@@ -22,6 +22,7 @@ import com.example.qingxue.focus.PendingFocusSettlement
 import com.example.qingxue.rating.FormRatingCalculator
 import com.example.qingxue.rating.FormRatingSummary
 import com.example.qingxue.util.daysUntil
+import com.example.qingxue.util.nextStudyDayBoundary
 import com.example.qingxue.util.recentDateStrings
 import com.example.qingxue.util.todayString
 import kotlinx.coroutines.flow.SharingStarted
@@ -158,8 +159,8 @@ class QingXueViewModel(
         viewModelScope.launch {
             while (true) {
                 val now = ZonedDateTime.now()
-                val nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay(now.zone)
-                val waitMillis = Duration.between(now, nextMidnight).toMillis()
+                val nextBoundary = nextStudyDayBoundary(now)
+                val waitMillis = Duration.between(now, nextBoundary).toMillis()
                     .coerceAtLeast(1_000L) + 500L
                 delay(waitMillis)
                 val newDate = todayString()

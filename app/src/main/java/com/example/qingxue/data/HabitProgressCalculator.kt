@@ -1,5 +1,6 @@
 package com.example.qingxue.data
 
+import com.example.qingxue.util.studyDate
 import java.time.LocalDate
 
 data class HabitProgress(
@@ -14,7 +15,7 @@ object HabitProgressCalculator {
         sessions: List<FocusSessionEntity>,
         habitId: Long,
         dailyTargetMinutes: Int,
-        today: LocalDate = LocalDate.now()
+        today: LocalDate = studyDate()
     ): HabitProgress {
         val habitSessions = sessions.filter { it.habitId == habitId }
         val secondsByDate = habitSessions

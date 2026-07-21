@@ -17,7 +17,7 @@ import com.example.qingxue.QingXueApp
 import com.example.qingxue.R
 import com.example.qingxue.data.FocusEndReason
 import com.example.qingxue.data.StudyRepository
-import com.example.qingxue.util.todayString
+import com.example.qingxue.util.studyDateStringAt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -271,7 +271,7 @@ class FocusTimerService : Service() {
             plannedCycles = state.totalCycles,
             completedCycles = state.completedCycles,
             winCondition = state.winCondition,
-            date = todayString()
+            date = studyDateStringAt(startedAt)
         )
         if (sessionId > 0L) {
             store.savePendingSettlement(

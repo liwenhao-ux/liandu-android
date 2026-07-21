@@ -1,5 +1,6 @@
 package com.example.qingxue.ui
 
+import com.example.qingxue.util.studyDate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -75,7 +76,7 @@ internal fun FocusHistoryScreen(
     var selectedTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var detailSession by rememberSaveable { mutableStateOf<FocusSessionEntity?>(null) }
     val tasksById = history.tasks.associateBy { it.id }
-    val today = LocalDate.now()
+    val today = studyDate()
     val filterTasks = history.sessions.mapNotNull { session ->
         session.taskId?.let(tasksById::get) ?: session.habitId?.let(tasksById::get)
     }.distinctBy { it.id }
@@ -171,7 +172,7 @@ internal fun TaskDetailScreen(
     onAddTodayTask: () -> Unit,
     onOpenTask: (Long) -> Unit
 ) {
-    val today = LocalDate.now()
+    val today = studyDate()
     val todayText = today.toString()
     val tasksById = allTasks.associateBy { it.id }
     val taskSessions = if (task.isHabit) {
