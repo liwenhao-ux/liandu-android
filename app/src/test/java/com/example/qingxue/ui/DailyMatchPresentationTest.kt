@@ -37,6 +37,13 @@ class DailyMatchPresentationTest {
     }
 
     @Test
+    fun standardStyleUsesNeutralStudyLanguage() {
+        assertEquals("今日目标已完成", standardDailyStatus("Victory"))
+        assertEquals("准备开始", standardDailyStatus("Warm-up"))
+        assertEquals("先完成一个有意义的小步骤。", standardDailyMessage("Falling Behind"))
+    }
+
+    @Test
     fun manualObjective_ignoresUnrelatedWinningRound() {
         val result = dailyMatchPresentation(
             match = DailyMatchEntity(

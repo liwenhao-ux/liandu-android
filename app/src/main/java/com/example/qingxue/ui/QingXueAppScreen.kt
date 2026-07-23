@@ -107,6 +107,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -160,6 +161,8 @@ import com.example.qingxue.music.MusicController
 import com.example.qingxue.music.MusicState
 import com.example.qingxue.rating.FormRatingSummary
 import com.example.qingxue.ui.theme.AppAccent
+import com.example.qingxue.ui.theme.AppVisualStyle
+import com.example.qingxue.ui.theme.LocalAppVisualStyle
 import com.example.qingxue.util.fullDateLabel
 import com.example.qingxue.util.shortDateLabel
 import com.example.qingxue.util.studyDate
@@ -220,9 +223,12 @@ private sealed interface DetailDestination {
 fun QingXueAppScreen(
     viewModel: QingXueViewModel,
     selectedAccent: AppAccent,
-    onAccentSelected: (AppAccent) -> Unit
+    selectedVisualStyle: AppVisualStyle,
+    onAccentSelected: (AppAccent) -> Unit,
+    onVisualStyleSelected: (AppVisualStyle) -> Unit
 ) {
     val context = LocalContext.current
+    val isTacticalStyle = selectedVisualStyle == AppVisualStyle.Tactical
     val state by viewModel.dashboardState.collectAsStateWithLifecycle()
     val history by viewModel.historyState.collectAsStateWithLifecycle()
     val focusTimerState by viewModel.focusTimerState.collectAsStateWithLifecycle()
@@ -300,7 +306,7 @@ fun QingXueAppScreen(
                             text = when (detailDestination) {
                                 DetailDestination.Form -> "FORM 详情"
                                 DetailDestination.Archive -> "归档任务"
-                                DetailDestination.FocusHistory -> "Match History"
+                                DetailDestination.FocusHistory -> if (isTacticalStyle) "Match History" else "专注历史"
                                 is DetailDestination.Task -> {
                                     val destination = detailDestination as DetailDestination.Task
                                     val selected = history.tasks.firstOrNull {
@@ -518,7 +524,9 @@ fun QingXueAppScreen(
     if (showAppSettings) {
         AppSettingsDialog(
             selectedAccent = selectedAccent,
+            selectedVisualStyle = selectedVisualStyle,
             onAccentSelected = onAccentSelected,
+            onVisualStyleSelected = onVisualStyleSelected,
             apiKey = apiKeyInput,
             onApiKeyChange = {
                 apiKeyInput = it
@@ -626,7 +634,9 @@ private fun openMusicAccessSettings(context: Context) {
 @Composable
 private fun AppSettingsDialog(
     selectedAccent: AppAccent,
+    selectedVisualStyle: AppVisualStyle,
     onAccentSelected: (AppAccent) -> Unit,
+    onVisualStyleSelected: (AppVisualStyle) -> Unit,
     apiKey: String,
     onApiKeyChange: (String) -> Unit,
     onExportData: () -> Unit,
@@ -644,6 +654,42 @@ private fun AppSettingsDialog(
                     .heightIn(max = 560.dp)
                     .verticalScroll(rememberScrollState())
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "战术风格",
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = if (selectedVisualStyle == AppVisualStyle.Tactical) {
+                                "红黑迷彩与竞技回合文案"
+                            } else {
+                                "简洁界面，适合日常学习"
+                            },
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f),
+                            fontSize = 12.sp
+                        )
+                    }
+                    Switch(
+                        checked = selectedVisualStyle == AppVisualStyle.Tactical,
+                        onCheckedChange = { enabled ->
+                            onVisualStyleSelected(
+                                if (enabled) AppVisualStyle.Tactical else AppVisualStyle.Standard
+                            )
+                            if (enabled) {
+                                onAccentSelected(AppAccent.GrayPurple)
+                            } else if (selectedAccent == AppAccent.GrayPurple) {
+                                onAccentSelected(AppAccent.MistGreen)
+                            }
+                        }
+                    )
+                }
+                Spacer(Modifier.height(18.dp))
                 Text(
                     text = "主题色",
                     fontWeight = FontWeight.SemiBold,
@@ -1474,6 +1520,7 @@ private fun FocusScreen(
     onLeaveImmersive: () -> Unit
 ) {
     val context = LocalContext.current
+    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     val lifecycleOwner = LocalLifecycleOwner.current
     val musicController = remember(context) {
         (context.applicationContext as QingXueApp).musicController
@@ -1662,7 +1709,7 @@ private fun FocusScreen(
                 ) {
                     Icon(Icons.Filled.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Start Round")
+                    Text(if (isTacticalStyle) "Start Round" else "开始专注")
                 }
                 FloatingActionButton(
                     onClick = { showFocusSetup = true },
@@ -1790,6 +1837,7 @@ private fun ImmersiveFocusContent(
     onEnd: () -> Unit,
     onLeave: () -> Unit
 ) {
+    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     val isFocusPhase = timerState.phase == PomodoroPhase.Focus
     val backgroundColor = if (isFocusPhase) {
         MaterialTheme.colorScheme.primaryContainer
@@ -1835,7 +1883,7 @@ private fun ImmersiveFocusContent(
                 )
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = "ROUND ${timerState.currentCycle}/${timerState.totalCycles} · ${timerState.phase.label}",
+                    text = if (isTacticalStyle) "ROUND ${timerState.currentCycle}/${timerState.totalCycles} · ${timerState.phase.label}" else "第 ${timerState.currentCycle}/${timerState.totalCycles} 轮 · ${timerState.phase.label}",
                     color = indicatorColor,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -1865,10 +1913,10 @@ private fun ImmersiveFocusContent(
                             contentDescription = null
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text(if (timerState.isRunning) "Tactical Pause" else "继续回合")
+                        Text(if (timerState.isRunning) "暂停" else if (isTacticalStyle) "继续回合" else "继续")
                     }
                     OutlinedButton(onClick = onEnd) {
-                        Text("End Round")
+                        Text(if (isTacticalStyle) "End Round" else "结束专注")
                     }
                 }
             }
@@ -2207,6 +2255,7 @@ private fun StatsScreen(
     onOpenFormDetails: () -> Unit,
     onOpenFocusHistory: () -> Unit
 ) {
+    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -2255,16 +2304,16 @@ private fun StatsScreen(
                     BrandMark(Modifier.size(36.dp))
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Match History", fontWeight = FontWeight.SemiBold)
+                        Text(if (isTacticalStyle) "Match History" else "专注历史", fontWeight = FontWeight.SemiBold)
                         Text(
-                            "查看每一局、累计时长与任务筛选",
+                            "查看每次专注、累计时长与任务筛选",
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f),
                             fontSize = 13.sp
                         )
                     }
                     Icon(
                         Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "查看 Match History"
+                        contentDescription = if (isTacticalStyle) "查看 Match History" else "查看专注历史"
                     )
                 }
             }

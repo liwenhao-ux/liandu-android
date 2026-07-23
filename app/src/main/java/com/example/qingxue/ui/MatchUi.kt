@@ -49,6 +49,8 @@ import com.example.qingxue.data.FocusSessionEntity
 import com.example.qingxue.data.RoundResult
 import com.example.qingxue.data.StudyTaskEntity
 import com.example.qingxue.focus.PendingFocusSettlement
+import com.example.qingxue.ui.theme.AppVisualStyle
+import com.example.qingxue.ui.theme.LocalAppVisualStyle
 import java.time.LocalTime
 
 internal data class DailyMatchPresentation(
@@ -60,6 +62,22 @@ internal data class DailyMatchPresentation(
     val plannedRounds: Int,
     val progress: Float
 )
+
+internal fun standardDailyStatus(status: String): String = when (status) {
+    "Victory" -> "今日目标已完成"
+    "Comeback Started" -> "状态正在恢复"
+    "Falling Behind" -> "进度稍慢"
+    "In the Match" -> "专注进行中"
+    else -> "准备开始"
+}
+
+internal fun standardDailyMessage(status: String): String = when (status) {
+    "Victory" -> "主目标已经完成，记得留出恢复时间。"
+    "Comeback Started" -> "已经重新进入节奏，继续完成下一段专注。"
+    "Falling Behind" -> "先完成一个有意义的小步骤。"
+    "In the Match" -> "专注当前任务，不必一次解决全部。"
+    else -> "确定一个清晰目标，然后开始。"
+}
 
 internal fun dailyMatchPresentation(
     match: DailyMatchEntity?,
@@ -118,6 +136,14 @@ internal fun TodayRoundCard(
     onStart: (Long?) -> Unit
 ) {
     val p = dailyMatchPresentation(match, tasks, sessions)
+    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
+    val status = if (isTacticalStyle) p.status else standardDailyStatus(p.status)
+    val message = if (isTacticalStyle) p.message else standardDailyMessage(p.status)
+    val objective = if (!isTacticalStyle && p.objective == "选择今天最重要的一回合") {
+        "选择今天最重要的一项"
+    } else {
+        p.objective
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -133,13 +159,13 @@ internal fun TodayRoundCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "TODAY'S ROUND",
+                        if (isTacticalStyle) "TODAY'S ROUND" else "今日重点",
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        p.status,
+                        status,
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f)
                     )
@@ -149,7 +175,7 @@ internal fun TodayRoundCard(
                 }
             }
             Text(
-                p.objective,
+                objective,
                 fontSize = 22.sp,
                 lineHeight = 28.sp,
                 fontWeight = FontWeight.Bold,
@@ -157,7 +183,7 @@ internal fun TodayRoundCard(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                "回合 ${p.completedRounds}/${p.plannedRounds} · ${p.message}",
+                if (isTacticalStyle) "回合 ${p.completedRounds}/${p.plannedRounds} · $message" else "专注 ${p.completedRounds}/${p.plannedRounds} · $message",
                 fontSize = 13.sp,
                 lineHeight = 19.sp,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
@@ -171,7 +197,7 @@ internal fun TodayRoundCard(
             Button(onClick = { onStart(p.taskId) }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("开始回合")
+                Text(if (isTacticalStyle) "开始回合" else "开始专注")
             }
         }
     }
@@ -184,6 +210,7 @@ internal fun TodayRoundPickerDialog(
     onDismiss: () -> Unit,
     onSave: (Long?, String, Int) -> Unit
 ) {
+    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     var selectedTaskId by rememberSaveable(current?.date) { mutableStateOf(current?.mainTaskId) }
     var manualObjective by rememberSaveable(current?.date) {
         mutableStateOf(current?.manualObjective.orEmpty())
@@ -194,7 +221,7 @@ internal fun TodayRoundPickerDialog(
     val activeTasks = tasks.filter { !it.isArchived && !it.completed }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("选择 Today's Round") },
+        title = { Text(if (isTacticalStyle) "选择 Today's Round" else "选择今日重点") },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
@@ -236,7 +263,7 @@ internal fun TodayRoundPickerDialog(
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 2
                 )
-                Text("计划回合", fontWeight = FontWeight.SemiBold)
+                Text(if (isTacticalStyle) "计划回合" else "计划轮次", fontWeight = FontWeight.SemiBold)
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -245,7 +272,7 @@ internal fun TodayRoundPickerDialog(
                         FilterChip(
                             selected = plannedRounds == count,
                             onClick = { plannedRounds = count },
-                            label = { Text("$count 回合") }
+                            label = { Text(if (isTacticalStyle) "$count 回合" else "$count 轮") }
                         )
                     }
                 }
@@ -271,24 +298,25 @@ internal fun PreRoundDialog(
     onAdjust: () -> Unit,
     onStart: (String) -> Unit
 ) {
+    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     var winCondition by rememberSaveable(initialWinCondition) {
         mutableStateOf(initialWinCondition.take(160))
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.Flag, contentDescription = null) },
-        title = { Text("这一回合怎样算赢？") },
+        title = { Text(if (isTacticalStyle) "这一回合怎样算赢？" else "本次专注要完成什么？") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "不要想整场比赛，只打好这一回合。",
+                    if (isTacticalStyle) "不要想整场比赛，只打好这一回合。" else "把目标写清楚，完成后更容易复盘。",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
                     fontSize = 13.sp
                 )
                 OutlinedTextField(
                     value = winCondition,
                     onValueChange = { winCondition = it.take(160) },
-                    label = { Text("胜利条件") },
+                    label = { Text(if (isTacticalStyle) "胜利条件" else "完成目标") },
                     placeholder = { Text("例如：做完 5 道微积分题") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
@@ -300,7 +328,7 @@ internal fun PreRoundDialog(
             Button(
                 onClick = { onStart(winCondition.trim()) },
                 enabled = winCondition.isNotBlank()
-            ) { Text("Start Round") }
+            ) { Text(if (isTacticalStyle) "Start Round" else "开始专注") }
         },
         dismissButton = {
             Row {
@@ -320,6 +348,7 @@ internal fun DemoReviewDialog(
     onSave: (DemoReview) -> Unit,
     onSkip: () -> Unit
 ) {
+    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     var result by rememberSaveable(settlement.sessionId) { mutableStateOf(RoundResult.Unreviewed) }
     var quality by rememberSaveable(settlement.sessionId) { mutableStateOf(FocusQuality.Unreviewed) }
     var wentWell by rememberSaveable(settlement.sessionId) { mutableStateOf("") }
@@ -328,7 +357,7 @@ internal fun DemoReviewDialog(
     var distractions by rememberSaveable(settlement.sessionId) { mutableStateOf("0") }
     AlertDialog(
         onDismissRequest = onSkip,
-        title = { Text("Demo Review") },
+        title = { Text(if (isTacticalStyle) "Demo Review" else "专注复盘") },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
@@ -342,7 +371,7 @@ internal fun DemoReviewDialog(
                 )
                 if (settlement.winCondition.isNotBlank()) {
                     Text(
-                        "胜利条件：${settlement.winCondition}",
+                        if (isTacticalStyle) "胜利条件：${settlement.winCondition}" else "本次目标：${settlement.winCondition}",
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
                         fontSize = 13.sp
                     )
@@ -368,7 +397,7 @@ internal fun DemoReviewDialog(
                 )
                 ReviewField("做得好的地方", wentWell, "哪一步值得保留？") { wentWell = it }
                 ReviewField("出现的问题", problems, "是什么打断了节奏？") { problems = it }
-                ReviewField("Next Call", nextCall, "下一回合只做什么？") { nextCall = it }
+                ReviewField(if (isTacticalStyle) "Next Call" else "下次行动", nextCall, if (isTacticalStyle) "下一回合只做什么？" else "下一次先做什么？") { nextCall = it }
                 OutlinedTextField(
                     value = distractions,
                     onValueChange = { distractions = it.filter(Char::isDigit).take(2) },
@@ -445,6 +474,7 @@ private fun ReviewField(
 
 @Composable
 internal fun ComebackReminderCard() {
+    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     Card(
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -461,10 +491,10 @@ internal fun ComebackReminderCard() {
             )
             Spacer(Modifier.width(12.dp))
             Column {
-                Text("CALL THE NEXT ROUND", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(if (isTacticalStyle) "CALL THE NEXT ROUND" else "继续保持节奏", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    "当前比分不是最终结果。一次只打好下一回合。",
+                    if (isTacticalStyle) "当前比分不是最终结果。一次只打好下一回合。" else "今天的状态不决定最终结果，先完成下一步。",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
                     fontSize = 13.sp
                 )

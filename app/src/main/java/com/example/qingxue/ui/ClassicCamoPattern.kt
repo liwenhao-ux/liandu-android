@@ -6,9 +6,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import com.example.qingxue.ui.theme.AppVisualStyle
+import com.example.qingxue.ui.theme.LocalAppVisualStyle
 
 @Composable
 internal fun Modifier.classicCamoPattern(intensity: Float = 1f): Modifier {
+    if (LocalAppVisualStyle.current != AppVisualStyle.Tactical) return this
+
     val red = MaterialTheme.colorScheme.primary
     val darkRed = Color(0xFF681D27)
     val black = Color(0xFF0D0D0F)

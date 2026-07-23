@@ -7,6 +7,8 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -25,7 +27,7 @@ enum class AppAccent(
 ) {
     GrayPurple(
         storageKey = "gray_purple",
-        label = "战术红",
+        label = "低饱和红",
         previewColor = Color(0xFFB33E47),
         lightPrimary = Color(0xFFA2353F),
         lightContainer = Color(0xFFF2D8DA),
@@ -70,9 +72,21 @@ enum class AppAccent(
 
     companion object {
         fun fromStorage(value: String?): AppAccent =
-            entries.firstOrNull { it.storageKey == value } ?: GrayPurple
+            entries.firstOrNull { it.storageKey == value } ?: MistGreen
     }
 }
+
+enum class AppVisualStyle(val storageKey: String) {
+    Standard("standard"),
+    Tactical("tactical");
+
+    companion object {
+        fun fromStorage(value: String?): AppVisualStyle =
+            entries.firstOrNull { it.storageKey == value } ?: Standard
+    }
+}
+
+val LocalAppVisualStyle = staticCompositionLocalOf { AppVisualStyle.Standard }
 
 private fun lightColors(accent: AppAccent): ColorScheme = lightColorScheme(
     primary = accent.lightPrimary,
@@ -151,13 +165,16 @@ private val AppTypography = Typography(
 
 @Composable
 fun QingXueTheme(
-    accent: AppAccent = AppAccent.GrayPurple,
+    accent: AppAccent = AppAccent.MistGreen,
+    visualStyle: AppVisualStyle = AppVisualStyle.Standard,
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) darkColors(accent) else lightColors(accent),
-        typography = AppTypography,
-        content = content
-    )
+    CompositionLocalProvider(LocalAppVisualStyle provides visualStyle) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) darkColors(accent) else lightColors(accent),
+            typography = AppTypography,
+            content = content
+        )
+    }
 }

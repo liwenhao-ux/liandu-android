@@ -25,13 +25,26 @@ class ThemePreferenceStore(context: Context) {
         }
         .map { preferences -> AppAccent.fromStorage(preferences[ACCENT]) }
 
+    val visualStyle: Flow<AppVisualStyle> = dataStore.data
+        .catch { error ->
+            if (error is IOException) emit(emptyPreferences()) else throw error
+        }
+        .map { preferences -> AppVisualStyle.fromStorage(preferences[VISUAL_STYLE]) }
+
     suspend fun setAccent(accent: AppAccent) {
         dataStore.edit { preferences ->
             preferences[ACCENT] = accent.storageKey
         }
     }
 
+    suspend fun setVisualStyle(style: AppVisualStyle) {
+        dataStore.edit { preferences ->
+            preferences[VISUAL_STYLE] = style.storageKey
+        }
+    }
+
     private companion object {
         val ACCENT = stringPreferencesKey("accent")
+        val VISUAL_STYLE = stringPreferencesKey("visual_style")
     }
 }

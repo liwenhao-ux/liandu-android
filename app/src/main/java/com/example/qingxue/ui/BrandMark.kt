@@ -1,6 +1,7 @@
 package com.example.qingxue.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -8,9 +9,61 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import com.example.qingxue.ui.theme.AppVisualStyle
+import com.example.qingxue.ui.theme.LocalAppVisualStyle
 
 @Composable
 internal fun BrandMark(modifier: Modifier = Modifier) {
+    if (LocalAppVisualStyle.current == AppVisualStyle.Tactical) {
+        TacticalBrandMark(modifier)
+    } else {
+        StandardBrandMark(modifier)
+    }
+}
+
+@Composable
+private fun StandardBrandMark(modifier: Modifier) {
+    val primary = MaterialTheme.colorScheme.primary
+    Canvas(modifier = modifier) {
+        val unit = size.minDimension
+        val center = Offset(size.width * 0.5f, size.height * 0.52f)
+        drawCircle(
+            color = primary.copy(alpha = 0.13f),
+            radius = unit * 0.43f,
+            center = center
+        )
+        drawCircle(
+            color = primary,
+            radius = unit * 0.34f,
+            center = center,
+            style = Stroke(width = unit * 0.075f)
+        )
+        drawLine(
+            color = primary,
+            start = Offset(size.width * 0.50f, size.height * 0.05f),
+            end = Offset(size.width * 0.50f, size.height * 0.18f),
+            strokeWidth = unit * 0.075f,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = primary,
+            start = Offset(size.width * 0.29f, size.height * 0.52f),
+            end = Offset(size.width * 0.45f, size.height * 0.66f),
+            strokeWidth = unit * 0.085f,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = primary,
+            start = Offset(size.width * 0.45f, size.height * 0.66f),
+            end = Offset(size.width * 0.73f, size.height * 0.36f),
+            strokeWidth = unit * 0.085f,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+private fun TacticalBrandMark(modifier: Modifier) {
     val red = Color(0xFFE0273A)
     val white = Color(0xFFFFF4F5)
     val black = Color(0xFF171719)

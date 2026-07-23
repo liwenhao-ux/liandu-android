@@ -13,13 +13,22 @@ class AppAccentTest {
     }
 
     @Test
-    fun unknownValueFallsBackToGrayPurple() {
-        assertEquals(AppAccent.GrayPurple, AppAccent.fromStorage("unknown"))
-        assertEquals(AppAccent.GrayPurple, AppAccent.fromStorage(null))
+    fun unknownValueFallsBackToMistGreen() {
+        assertEquals(AppAccent.MistGreen, AppAccent.fromStorage("unknown"))
+        assertEquals(AppAccent.MistGreen, AppAccent.fromStorage(null))
     }
 
     @Test
     fun storageKeysAreUnique() {
         assertTrue(AppAccent.entries.map { it.storageKey }.toSet().size == AppAccent.entries.size)
+    }
+
+    @Test
+    fun visualStyleStorageRoundTripsAndDefaultsToStandard() {
+        AppVisualStyle.entries.forEach { style ->
+            assertEquals(style, AppVisualStyle.fromStorage(style.storageKey))
+        }
+        assertEquals(AppVisualStyle.Standard, AppVisualStyle.fromStorage("unknown"))
+        assertEquals(AppVisualStyle.Standard, AppVisualStyle.fromStorage(null))
     }
 }
