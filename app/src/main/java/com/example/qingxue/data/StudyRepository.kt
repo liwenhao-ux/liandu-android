@@ -228,6 +228,24 @@ class StudyRepository(private val dao: StudyDao) {
         )
     }
 
+    suspend fun recordManualFocus(
+        selectedTask: StudyTaskEntity?,
+        startedAt: Long,
+        durationMinutes: Int,
+        reflection: String
+    ): Long {
+        return dao.insertSession(
+            ManualFocusSessionFactory.create(
+                ManualFocusDraft(
+                    selectedTask = selectedTask,
+                    startedAt = startedAt,
+                    durationMinutes = durationMinutes,
+                    reflection = reflection
+                )
+            )
+        )
+    }
+
     suspend fun updateReflection(sessionId: Long, reflection: String) {
         dao.updateSessionReflection(sessionId, reflection.trim())
     }

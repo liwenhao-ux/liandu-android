@@ -408,7 +408,9 @@ fun QingXueAppScreen(
                     )
                     DetailDestination.FocusHistory -> FocusHistoryScreen(
                         history = history,
-                        onSaveReflection = viewModel::saveReflection
+                        onSaveReflection = viewModel::saveReflection,
+                        onAddManualFocus = viewModel::addManualFocus,
+                        onDeleteSession = viewModel::deleteFocusSession
                     )
                     is DetailDestination.Task -> {
                         val task = history.tasks.firstOrNull { it.id == detail.taskId }

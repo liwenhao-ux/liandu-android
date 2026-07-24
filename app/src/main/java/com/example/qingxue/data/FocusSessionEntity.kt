@@ -97,5 +97,6 @@ data class FocusSessionEntity(
     @ColumnInfo(defaultValue = "") val wentWell: String = "",
     @ColumnInfo(defaultValue = "") val problemDescription: String = "",
     @ColumnInfo(defaultValue = "") val nextCall: String = "",
-    @ColumnInfo(defaultValue = "0") val distractionCount: Int = 0
+    @ColumnInfo(defaultValue = "0") val distractionCount: Int = 0,
+    @ColumnInfo(defaultValue = "0") val isManual: Boolean = false
 )

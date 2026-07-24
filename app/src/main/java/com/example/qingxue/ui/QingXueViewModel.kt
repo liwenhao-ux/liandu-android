@@ -444,6 +444,31 @@ class QingXueViewModel(
         }
     }
 
+    fun addManualFocus(
+        selectedTaskId: Long?,
+        startedAt: Long,
+        durationMinutes: Int,
+        reflection: String
+    ) {
+        val selectedTask = selectedTaskId?.let { id ->
+            historyState.value.tasks.firstOrNull { it.id == id }
+        }
+        viewModelScope.launch {
+            repository.recordManualFocus(
+                selectedTask = selectedTask,
+                startedAt = startedAt,
+                durationMinutes = durationMinutes,
+                reflection = reflection
+            )
+        }
+    }
+
+    fun deleteFocusSession(sessionId: Long) {
+        viewModelScope.launch {
+            repository.discardFocusSession(sessionId)
+        }
+    }
+
     fun discardFocusSession() {
         val pending = _pendingFocusSettlement.value ?: return
         viewModelScope.launch {

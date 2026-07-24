@@ -14,7 +14,7 @@ data class AppBackupData(
 )
 
 object AppBackupCodec {
-    private const val SCHEMA_VERSION = 2
+    private const val SCHEMA_VERSION = 3
     private const val APP_ID = "com.example.qingxue"
 
     fun encode(data: AppBackupData): String {
@@ -97,6 +97,7 @@ object AppBackupCodec {
         put("problemDescription", problemDescription)
         put("nextCall", nextCall)
         put("distractionCount", distractionCount)
+        put("isManual", isManual)
     }
 
     private fun DailyMatchEntity.toJson() = JSONObject().apply {
@@ -178,7 +179,8 @@ object AppBackupCodec {
         wentWell = optString("wentWell"),
         problemDescription = optString("problemDescription"),
         nextCall = optString("nextCall"),
-        distractionCount = optInt("distractionCount")
+        distractionCount = optInt("distractionCount"),
+        isManual = optBoolean("isManual")
     )
 
     private fun JSONObject.toDailyMatch() = DailyMatchEntity(

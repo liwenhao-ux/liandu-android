@@ -72,11 +72,15 @@ private enum class HistoryRange(val label: String, val days: Long?) {
 @Composable
 internal fun FocusHistoryScreen(
     history: StudyHistoryState,
-    onSaveReflection: (Long, String) -> Unit = { _, _ -> }
+    onSaveReflection: (Long, String) -> Unit = { _, _ -> },
+    onAddManualFocus: (Long?, Long, Int, String) -> Unit = { _, _, _, _ -> },
+    onDeleteSession: (Long) -> Unit = {}
 ) {
     var range by rememberSaveable { mutableStateOf(HistoryRange.ThirtyDays) }
     var selectedTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var detailSession by rememberSaveable { mutableStateOf<FocusSessionEntity?>(null) }
+    var deleteCandidate by rememberSaveable { mutableStateOf<FocusSessionEntity?>(null) }
+    var showManualFocusDialog by rememberSaveable { mutableStateOf(false) }
     val tasksById = history.tasks.associateBy { it.id }
     val today = studyDate()
     val filterTasks = history.sessions.mapNotNull { session ->
@@ -99,6 +103,18 @@ internal fun FocusHistoryScreen(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                OutlinedButton(onClick = { showManualFocusDialog = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("补记专注")
+                }
+            }
+        }
         item {
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 HistoryRange.entries.forEachIndexed { index, item ->
@@ -159,6 +175,48 @@ internal fun FocusHistoryScreen(
             onSaveReflection = { reflection ->
                 onSaveReflection(session.id, reflection)
                 detailSession = detailSession?.copy(reflection = reflection)
+            },
+            onDelete = if (session.isManual) {
+                {
+                    deleteCandidate = session
+                    detailSession = null
+                }
+            } else {
+                null
+            }
+        )
+    }
+
+    if (showManualFocusDialog) {
+        ManualFocusDialog(
+            tasks = history.tasks,
+            onDismiss = { showManualFocusDialog = false },
+            onSave = { taskId, startedAt, durationMinutes, reflection ->
+                onAddManualFocus(taskId, startedAt, durationMinutes, reflection)
+                showManualFocusDialog = false
+            }
+        )
+    }
+
+    deleteCandidate?.let { session ->
+        AlertDialog(
+            onDismissRequest = { deleteCandidate = null },
+            title = { Text("删除这条补记？") },
+            text = { Text("删除后，它对应的专注时长也会从任务、习惯和统计中移除。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteSession(session.id)
+                        deleteCandidate = null
+                    }
+                ) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteCandidate = null }) {
+                    Text("取消")
+                }
             }
         )
     }
@@ -453,9 +511,13 @@ private fun SessionCard(
         }
         Spacer(Modifier.height(10.dp))
         MutedText(
-            (if (completed) "完成计划" else "提前结束") +
-                " · 计划 ${session.plannedMinutes} 分钟" +
-                if (session.pauseCount > 0) " · 暂停 ${session.pauseCount} 次" else ""
+            if (session.isManual) {
+                "手动补记 · ${session.durationMinutes} 分钟"
+            } else {
+                (if (completed) "完成计划" else "提前结束") +
+                    " · 计划 ${session.plannedMinutes} 分钟" +
+                    if (session.pauseCount > 0) " · 暂停 ${session.pauseCount} 次" else ""
+            }
         )
         if (session.winCondition.isNotBlank()) {
             Spacer(Modifier.height(6.dp))
@@ -540,7 +602,8 @@ private fun SessionDetailPopup(
     session: FocusSessionEntity,
     taskTitle: String?,
     onDismiss: () -> Unit,
-    onSaveReflection: (String) -> Unit
+    onSaveReflection: (String) -> Unit,
+    onDelete: (() -> Unit)? = null
 ) {
     val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
     val dateFormat = DateTimeFormatter.ofPattern("yyyy年M月d日")
@@ -564,8 +627,12 @@ private fun SessionDetailPopup(
                     fontSize = 13.sp
                 )
                 Text(
-                    "${session.durationMinutes} 分钟${if (session.pauseCount > 0) " · 暂停${session.pauseCount}次" else ""}" +
-                        " · ${if (session.endReason == "COMPLETED") "自然完成" else "提前结束"}",
+                    if (session.isManual) {
+                        "${session.durationMinutes} 分钟 · 手动补记"
+                    } else {
+                        "${session.durationMinutes} 分钟${if (session.pauseCount > 0) " · 暂停${session.pauseCount}次" else ""}" +
+                            " · ${if (session.endReason == "COMPLETED") "自然完成" else "提前结束"}"
+                    },
                     fontSize = 13.sp
                 )
                 if (roundResult != RoundResult.Unreviewed) {
@@ -604,8 +671,15 @@ private fun SessionDetailPopup(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+            Row {
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete) {
+                        Text("删除记录", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("取消")
+                }
             }
         }
     )
