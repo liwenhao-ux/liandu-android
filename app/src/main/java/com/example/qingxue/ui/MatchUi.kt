@@ -154,20 +154,17 @@ internal fun TodayRoundCard(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().classicCamoPattern().padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        if (isTacticalStyle) "TODAY'S ROUND" else "今日重点",
+                        (if (isTacticalStyle) "TODAY'S ROUND" else "今日重点") + " · " + status,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        status,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f)
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 IconButton(onClick = onChoose) {

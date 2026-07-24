@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -30,10 +31,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.qingxue.data.FocusSessionEntity
 import com.example.qingxue.data.StudyTaskEntity
+import com.example.qingxue.data.findOverlappingFocusSession
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -44,19 +47,34 @@ import java.time.format.DateTimeFormatter
 @Composable
 internal fun ManualFocusDialog(
     tasks: List<StudyTaskEntity>,
+    sessions: List<FocusSessionEntity> = emptyList(),
+    initialSession: FocusSessionEntity? = null,
     onDismiss: () -> Unit,
-    onSave: (Long?, Long, Int, String) -> Unit
+    onSave: (Long?, Long?, Long, Int, String) -> Unit
 ) {
     val context = LocalContext.current
     val zone = ZoneId.systemDefault()
-    val defaultStart = remember {
-        ZonedDateTime.now(zone).minusMinutes(25).withSecond(0).withNano(0).toLocalDateTime()
+    val initialStart = remember(initialSession?.id) {
+        initialSession?.startedAt?.let {
+            Instant.ofEpochMilli(it).atZone(zone).toLocalDateTime()
+        } ?: ZonedDateTime.now(zone).minusMinutes(25).withSecond(0).withNano(0).toLocalDateTime()
     }
-    var dateText by rememberSaveable { mutableStateOf(defaultStart.toLocalDate().toString()) }
-    var timeText by rememberSaveable { mutableStateOf(defaultStart.toLocalTime().toString()) }
-    var durationText by rememberSaveable { mutableStateOf("25") }
-    var selectedTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var reflection by rememberSaveable { mutableStateOf("") }
+    val initialSelectionId = initialSession?.taskId ?: initialSession?.habitId
+    var dateText by rememberSaveable(initialSession?.id) {
+        mutableStateOf(initialStart.toLocalDate().toString())
+    }
+    var timeText by rememberSaveable(initialSession?.id) {
+        mutableStateOf(initialStart.toLocalTime().toString())
+    }
+    var durationText by rememberSaveable(initialSession?.id) {
+        mutableStateOf((initialSession?.durationMinutes ?: 25).toString())
+    }
+    var selectedTaskId by rememberSaveable(initialSession?.id) {
+        mutableStateOf(initialSelectionId)
+    }
+    var reflection by rememberSaveable(initialSession?.id) {
+        mutableStateOf(initialSession?.reflection.orEmpty())
+    }
 
     val selectedDate = runCatching { LocalDate.parse(dateText) }.getOrNull()
     val selectedTime = runCatching { LocalTime.parse(timeText) }.getOrNull()
@@ -74,15 +92,29 @@ internal fun ManualFocusDialog(
     val durationValid = duration != null && duration in 1..960
     val timeValid = endedAt != null && endedAt <= System.currentTimeMillis()
     val formValid = durationValid && timeValid
+    val overlap = if (formValid) {
+        findOverlappingFocusSession(
+            sessions = sessions,
+            startedAt = checkNotNull(startedAt),
+            durationMinutes = checkNotNull(duration),
+            excludedSessionId = initialSession?.id
+        )
+    } else {
+        null
+    }
     val dateLabel = selectedDate?.format(DateTimeFormatter.ofPattern("yyyy/M/d")) ?: "选择日期"
     val timeLabel = selectedTime?.format(DateTimeFormatter.ofPattern("HH:mm")) ?: "选择时间"
-    val availableTasks = tasks.filterNot { it.isArchived }.sortedWith(
-        compareBy<StudyTaskEntity> { it.completed }.thenByDescending { it.isHabit }.thenBy { it.title }
-    )
+    val availableTasks = tasks
+        .filter { !it.isArchived || it.id == initialSelectionId }
+        .sortedWith(
+            compareBy<StudyTaskEntity> { it.completed }
+                .thenByDescending { it.isHabit }
+                .thenBy { it.title }
+        )
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("补记专注") },
+        title = { Text(if (initialSession == null) "补记专注" else "编辑补记") },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
@@ -150,6 +182,16 @@ internal fun ManualFocusDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                overlap?.let { existing ->
+                    val overlapTime = Instant.ofEpochMilli(existing.startedAt)
+                        .atZone(zone)
+                        .format(DateTimeFormatter.ofPattern("M月d日 HH:mm"))
+                    Text(
+                        "与 $overlapTime 的已有记录时间重叠，请确认后再保存。",
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp
+                    )
+                }
                 Text("关联任务或习惯", fontWeight = FontWeight.SemiBold)
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -189,10 +231,22 @@ internal fun ManualFocusDialog(
             Button(
                 enabled = formValid,
                 onClick = {
-                    onSave(selectedTaskId, checkNotNull(startedAt), checkNotNull(duration), reflection)
+                    onSave(
+                        initialSession?.id,
+                        selectedTaskId,
+                        checkNotNull(startedAt),
+                        checkNotNull(duration),
+                        reflection
+                    )
                 }
             ) {
-                Text("保存补记")
+                Text(
+                    when {
+                        overlap != null -> "仍然保存"
+                        initialSession != null -> "保存修改"
+                        else -> "保存补记"
+                    }
+                )
             }
         },
         dismissButton = {

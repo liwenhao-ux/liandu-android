@@ -73,15 +73,19 @@ private enum class HistoryRange(val label: String, val days: Long?) {
 internal fun FocusHistoryScreen(
     history: StudyHistoryState,
     onSaveReflection: (Long, String) -> Unit = { _, _ -> },
-    onAddManualFocus: (Long?, Long, Int, String) -> Unit = { _, _, _, _ -> },
+    onSaveManualFocus: (Long?, Long?, Long, Int, String) -> Unit = { _, _, _, _, _ -> },
     onDeleteSession: (Long) -> Unit = {}
 ) {
     var range by rememberSaveable { mutableStateOf(HistoryRange.ThirtyDays) }
     var selectedTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var detailSession by rememberSaveable { mutableStateOf<FocusSessionEntity?>(null) }
-    var deleteCandidate by rememberSaveable { mutableStateOf<FocusSessionEntity?>(null) }
+    var detailSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var deleteCandidateId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showManualFocusDialog by rememberSaveable { mutableStateOf(false) }
+    var manualFocusToEditId by rememberSaveable { mutableStateOf<Long?>(null) }
     val tasksById = history.tasks.associateBy { it.id }
+    val detailSession = detailSessionId?.let { id -> history.sessions.firstOrNull { it.id == id } }
+    val deleteCandidate = deleteCandidateId?.let { id -> history.sessions.firstOrNull { it.id == id } }
+    val manualFocusToEdit = manualFocusToEditId?.let { id -> history.sessions.firstOrNull { it.id == id } }
     val today = studyDate()
     val filterTasks = history.sessions.mapNotNull { session ->
         session.taskId?.let(tasksById::get) ?: session.habitId?.let(tasksById::get)
@@ -108,7 +112,10 @@ internal fun FocusHistoryScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                OutlinedButton(onClick = { showManualFocusDialog = true }) {
+                OutlinedButton(onClick = {
+                    manualFocusToEditId = null
+                    showManualFocusDialog = true
+                }) {
                     Icon(Icons.Filled.Add, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("补记专注")
@@ -161,7 +168,7 @@ internal fun FocusHistoryScreen(
                 SessionCard(
                     session = session,
                     taskTitle = sessionDisplayTitle(session, tasksById),
-                    onClick = { detailSession = session }
+                    onClick = { detailSessionId = session.id }
                 )
             }
         }
@@ -171,15 +178,24 @@ internal fun FocusHistoryScreen(
         SessionDetailPopup(
             session = session,
             taskTitle = sessionDisplayTitle(session, tasksById),
-            onDismiss = { detailSession = null },
+            onDismiss = { detailSessionId = null },
             onSaveReflection = { reflection ->
                 onSaveReflection(session.id, reflection)
-                detailSession = detailSession?.copy(reflection = reflection)
+                detailSessionId = null
+            },
+            onEdit = if (session.isManual) {
+                {
+                    manualFocusToEditId = session.id
+                    showManualFocusDialog = true
+                    detailSessionId = null
+                }
+            } else {
+                null
             },
             onDelete = if (session.isManual) {
                 {
-                    deleteCandidate = session
-                    detailSession = null
+                    deleteCandidateId = session.id
+                    detailSessionId = null
                 }
             } else {
                 null
@@ -190,31 +206,37 @@ internal fun FocusHistoryScreen(
     if (showManualFocusDialog) {
         ManualFocusDialog(
             tasks = history.tasks,
-            onDismiss = { showManualFocusDialog = false },
-            onSave = { taskId, startedAt, durationMinutes, reflection ->
-                onAddManualFocus(taskId, startedAt, durationMinutes, reflection)
+            sessions = history.sessions,
+            initialSession = manualFocusToEdit,
+            onDismiss = {
                 showManualFocusDialog = false
+                manualFocusToEditId = null
+            },
+            onSave = { sessionId, taskId, startedAt, durationMinutes, reflection ->
+                onSaveManualFocus(sessionId, taskId, startedAt, durationMinutes, reflection)
+                showManualFocusDialog = false
+                manualFocusToEditId = null
             }
         )
     }
 
     deleteCandidate?.let { session ->
         AlertDialog(
-            onDismissRequest = { deleteCandidate = null },
+            onDismissRequest = { deleteCandidateId = null },
             title = { Text("删除这条补记？") },
             text = { Text("删除后，它对应的专注时长也会从任务、习惯和统计中移除。") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onDeleteSession(session.id)
-                        deleteCandidate = null
+                        deleteCandidateId = null
                     }
                 ) {
                     Text("删除", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteCandidate = null }) {
+                TextButton(onClick = { deleteCandidateId = null }) {
                     Text("取消")
                 }
             }
@@ -603,6 +625,7 @@ private fun SessionDetailPopup(
     taskTitle: String?,
     onDismiss: () -> Unit,
     onSaveReflection: (String) -> Unit,
+    onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null
 ) {
     val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
@@ -672,9 +695,16 @@ private fun SessionDetailPopup(
         },
         dismissButton = {
             Row {
+                if (onEdit != null) {
+                    TextButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text("编辑")
+                    }
+                }
                 if (onDelete != null) {
                     TextButton(onClick = onDelete) {
-                        Text("删除记录", color = MaterialTheme.colorScheme.error)
+                        Text("删除", color = MaterialTheme.colorScheme.error)
                     }
                 }
                 TextButton(onClick = onDismiss) {

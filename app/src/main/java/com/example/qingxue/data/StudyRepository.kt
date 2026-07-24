@@ -228,22 +228,27 @@ class StudyRepository(private val dao: StudyDao) {
         )
     }
 
-    suspend fun recordManualFocus(
+    suspend fun saveManualFocus(
+        sessionId: Long?,
         selectedTask: StudyTaskEntity?,
         startedAt: Long,
         durationMinutes: Int,
         reflection: String
     ): Long {
-        return dao.insertSession(
-            ManualFocusSessionFactory.create(
-                ManualFocusDraft(
-                    selectedTask = selectedTask,
-                    startedAt = startedAt,
-                    durationMinutes = durationMinutes,
-                    reflection = reflection
-                )
+        val updated = ManualFocusSessionFactory.create(
+            ManualFocusDraft(
+                selectedTask = selectedTask,
+                startedAt = startedAt,
+                durationMinutes = durationMinutes,
+                reflection = reflection
             )
         )
+        if (sessionId == null) return dao.insertSession(updated)
+
+        val existing = dao.sessionById(sessionId) ?: error("补记记录已不存在")
+        require(existing.isManual) { "只有手动补记可以修改时间和归属" }
+        dao.updateSession(updated.copy(id = existing.id))
+        return existing.id
     }
 
     suspend fun updateReflection(sessionId: Long, reflection: String) {
@@ -288,7 +293,7 @@ class StudyRepository(private val dao: StudyDao) {
             connectTimeout = 4_000
             readTimeout = 4_000
             setRequestProperty("Accept", "application/json")
-            setRequestProperty("User-Agent", "LockIn/1.7.0 (Android)")
+            setRequestProperty("User-Agent", "LockIn/1.8.0 (Android)")
         }
 
         try {
@@ -330,6 +335,8 @@ class StudyRepository(private val dao: StudyDao) {
             )
         )
     }
+
+    fun previewBackup(json: String): AppBackupData = AppBackupCodec.decode(json)
 
     suspend fun importBackup(json: String): String? = withContext(Dispatchers.IO) {
         val backup = AppBackupCodec.decode(json)

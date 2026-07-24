@@ -3,11 +3,14 @@ package com.example.qingxue.ui
 import android.Manifest
 import android.app.Activity
 import android.app.DatePickerDialog
+import android.app.NotificationManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -115,6 +118,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -237,6 +241,7 @@ fun QingXueAppScreen(
     val isAnalyzing by viewModel.isAnalyzing.collectAsStateWithLifecycle()
     val analysisError by viewModel.analysisError.collectAsStateWithLifecycle()
     val backupMessage by viewModel.backupMessage.collectAsStateWithLifecycle()
+    val backupImportPreview by viewModel.backupImportPreview.collectAsStateWithLifecycle()
     var currentScreen by rememberSaveable { mutableStateOf(Screen.Home) }
     var selectedTaskId by rememberSaveable { mutableStateOf<Long?>(null) }
     var detailDestination by remember { mutableStateOf<DetailDestination?>(null) }
@@ -246,6 +251,8 @@ fun QingXueAppScreen(
     var showAppSettings by rememberSaveable { mutableStateOf(false) }
     var showRoundPicker by rememberSaveable { mutableStateOf(false) }
     var apiKeyInput by rememberSaveable { mutableStateOf(ApiKeyManager.getApiKey(context)) }
+    var settingsRefreshToken by remember { mutableIntStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -254,11 +261,24 @@ fun QingXueAppScreen(
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        uri?.let {
-            viewModel.importBackup(it) { restoredAccent ->
-                onAccentSelected(AppAccent.fromStorage(restoredAccent))
-            }
+        uri?.let(viewModel::prepareBackupImport)
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) settingsRefreshToken++
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val notificationReady = remember(settingsRefreshToken, showAppSettings) {
+        areAppNotificationsReady(context)
+    }
+    val musicAccessReady = remember(settingsRefreshToken, showAppSettings) {
+        isMusicAccessEnabled(context)
+    }
+    val batteryReady = remember(settingsRefreshToken, showAppSettings) {
+        isBatteryOptimizationIgnored(context)
     }
 
     LaunchedEffect(backupMessage) {
@@ -409,7 +429,7 @@ fun QingXueAppScreen(
                     DetailDestination.FocusHistory -> FocusHistoryScreen(
                         history = history,
                         onSaveReflection = viewModel::saveReflection,
-                        onAddManualFocus = viewModel::addManualFocus,
+                        onSaveManualFocus = viewModel::saveManualFocus,
                         onDeleteSession = viewModel::deleteFocusSession
                     )
                     is DetailDestination.Task -> {
@@ -445,6 +465,7 @@ fun QingXueAppScreen(
                                 detailDestination = DetailDestination.Form
                             },
                             onChooseDailyMatch = { showRoundPicker = true },
+                            onOpenTasks = { currentScreen = Screen.Tasks },
                             onStartFocus = { requestedTaskId ->
                                 selectedTaskId = if (
                                     focusTimerState.isRunning ||
@@ -537,15 +558,57 @@ fun QingXueAppScreen(
             onExportData = {
                 exportLauncher.launch("lock-in-backup-${studyDate()}.json")
             },
-            onImportData = { importLauncher.launch(arrayOf("application/json", "text/plain")) },
+            onImportData = {
+                showAppSettings = false
+                importLauncher.launch(arrayOf("application/json", "text/plain"))
+            },
+            backupSummary = "${history.tasks.size} 个任务 · ${history.sessions.size} 条专注记录",
+            notificationReady = notificationReady,
+            musicAccessReady = musicAccessReady,
+            batteryReady = batteryReady,
             onOpenArchive = {
                 showAppSettings = false
                 detailDestination = DetailDestination.Archive
             },
-            onOpenNotificationSettings = {
-                openMusicAccessSettings(context)
-            },
+            onOpenNotificationSettings = { openAppNotificationSettings(context) },
+            onOpenMusicAccessSettings = { openMusicAccessSettings(context) },
+            onOpenBatterySettings = { openBatteryOptimizationSettings(context) },
             onDismiss = { showAppSettings = false }
+        )
+    }
+
+    backupImportPreview?.let { preview ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelBackupImport,
+            title = { Text("确认恢复备份？") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("备份内容")
+                    Text(
+                        "${preview.taskCount} 个任务 · ${preview.sessionCount} 条专注记录 · " +
+                            "${preview.countdownCount} 个重要日 · ${preview.matchCount} 天计划",
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        "恢复后会替换当前 App 内的数据，建议先导出一次当前备份。",
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 13.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.confirmBackupImport { restoredAccent ->
+                            onAccentSelected(AppAccent.fromStorage(restoredAccent))
+                        }
+                    }
+                ) { Text("确认恢复") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelBackupImport) { Text("取消") }
+            }
         )
     }
 
@@ -621,6 +684,52 @@ private fun FormInsightCard(summary: FormRatingSummary) {
     }
 }
 
+private fun areAppNotificationsReady(context: Context): Boolean {
+    val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    val notificationsEnabled = context.getSystemService(NotificationManager::class.java)
+        .areNotificationsEnabled()
+    return permissionGranted && notificationsEnabled
+}
+
+private fun isMusicAccessEnabled(context: Context): Boolean {
+    return Settings.Secure.getString(
+        context.contentResolver,
+        "enabled_notification_listeners"
+    ).orEmpty().split(':').mapNotNull(ComponentName::unflattenFromString).any {
+        it.packageName == context.packageName
+    }
+}
+
+private fun isBatteryOptimizationIgnored(context: Context): Boolean {
+    val powerManager = context.getSystemService(PowerManager::class.java)
+    return powerManager.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+private fun openAppNotificationSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
+        .onFailure { openAppDetailsSettings(context) }
+}
+
+private fun openBatteryOptimizationSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
+        .onFailure { openAppDetailsSettings(context) }
+}
+
+private fun openAppDetailsSettings(context: Context) {
+    context.startActivity(
+        Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:${context.packageName}")
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+}
+
 private fun openMusicAccessSettings(context: Context) {
     val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -643,8 +752,14 @@ private fun AppSettingsDialog(
     onApiKeyChange: (String) -> Unit,
     onExportData: () -> Unit,
     onImportData: () -> Unit,
+    backupSummary: String,
+    notificationReady: Boolean,
+    musicAccessReady: Boolean,
+    batteryReady: Boolean,
     onOpenArchive: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
+    onOpenMusicAccessSettings: () -> Unit,
+    onOpenBatterySettings: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -724,6 +839,34 @@ private fun AppSettingsDialog(
                 )
                 Spacer(Modifier.height(18.dp))
                 Text(
+                    text = "功能检测",
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                CapabilityStatusRow(
+                    title = "锁屏与倒计时通知",
+                    ready = notificationReady,
+                    readyText = "通知权限正常",
+                    blockedText = "通知权限未开启",
+                    onAction = onOpenNotificationSettings
+                )
+                CapabilityStatusRow(
+                    title = "音乐控制",
+                    ready = musicAccessReady,
+                    readyText = "音乐访问已授权",
+                    blockedText = "需要通知使用权",
+                    onAction = onOpenMusicAccessSettings
+                )
+                CapabilityStatusRow(
+                    title = "后台计时",
+                    ready = batteryReady,
+                    readyText = "电池限制已放宽",
+                    blockedText = "系统可能限制后台运行",
+                    onAction = onOpenBatterySettings
+                )
+                Spacer(Modifier.height(18.dp))
+                Text(
                     text = "AI 复盘",
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -748,6 +891,12 @@ private fun AppSettingsDialog(
                     text = "数据",
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    backupSummary,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                    fontSize = 12.sp
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(
@@ -780,15 +929,7 @@ private fun AppSettingsDialog(
                     Spacer(Modifier.width(8.dp))
                     Text("归档任务")
                 }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = onOpenNotificationSettings,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Filled.Settings, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("音乐权限设置")
-                }
+
             }
         },
         confirmButton = {
@@ -798,6 +939,38 @@ private fun AppSettingsDialog(
         }
     )
 }
+
+@Composable
+private fun CapabilityStatusRow(
+    title: String,
+    ready: Boolean,
+    readyText: String,
+    blockedText: String,
+    onAction: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = if (ready) Icons.Filled.Check else Icons.Filled.Close,
+            contentDescription = null,
+            tint = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(
+                if (ready) readyText else blockedText,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                fontSize = 12.sp
+            )
+        }
+        TextButton(onClick = onAction) { Text("设置") }
+    }
+}
+
 @Composable
 private fun ThemeAccentOption(
     accent: AppAccent,
@@ -849,6 +1022,7 @@ private fun HomeScreen(
     state: DashboardState,
     onOpenFormDetails: () -> Unit,
     onChooseDailyMatch: () -> Unit,
+    onOpenTasks: () -> Unit,
     onStartFocus: (Long?) -> Unit,
     onToggleTask: (StudyTaskEntity) -> Unit,
     onEditTask: (StudyTaskEntity) -> Unit,
@@ -872,6 +1046,8 @@ private fun HomeScreen(
             .thenByDescending { it.isHabit }
             .thenByDescending { it.createdAt }
     )
+    val incompleteTasks = orderedTasks.filterNot { it.completed }
+    val visibleTasks = incompleteTasks.take(3)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -886,19 +1062,45 @@ private fun HomeScreen(
                 onStart = onStartFocus
             )
         }
-        item { ComebackReminderCard() }
+        item { TodayProgressCard(state) }
 
-        item { SectionTitle("今日任务") }
-        if (orderedTasks.isEmpty()) {
-            item { EmptyCard("今天还没有任务，去任务页添加一个可以完成的小目标。") }
-        } else {
-            items(orderedTasks, key = { "home-task-${it.id}" }) { task ->
-                TaskRow(
-                    task = task,
-                    onClick = { onEditTask(task) },
-                    onToggle = { onToggleTask(task) },
-                    onDelete = null
-                )
+        item {
+            SectionTitleWithTextAction(
+                text = "今日任务",
+                action = "查看全部",
+                onClick = onOpenTasks
+            )
+        }
+        when {
+            orderedTasks.isEmpty() -> {
+                item { EmptyCard("今天还没有任务，去任务页添加一个可以完成的小目标。") }
+            }
+            visibleTasks.isEmpty() -> {
+                item { EmptyCard("今天的任务已经全部完成。") }
+            }
+            else -> {
+                items(visibleTasks, key = { "home-task-${it.id}" }) { task ->
+                    TaskRow(
+                        task = task,
+                        onClick = { onEditTask(task) },
+                        onToggle = { onToggleTask(task) },
+                        onDelete = null
+                    )
+                }
+                if (incompleteTasks.size > visibleTasks.size) {
+                    item {
+                        TextButton(
+                            onClick = onOpenTasks,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("还有 ${incompleteTasks.size - visibleTasks.size} 项未完成")
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -961,6 +1163,70 @@ private fun HomeScreen(
         state.dailyQuote?.let { quote -> item { DailyQuoteLine(quote) } }
     }
 }
+
+@Composable
+private fun TodayProgressCard(state: DashboardState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                TodayProgressMetric("今日专注", "${state.todayFocusMinutes} 分钟", Modifier.weight(1f))
+                TodayProgressMetric(
+                    "完成任务",
+                    "${state.completedToday}/${state.totalToday}",
+                    Modifier.weight(1f)
+                )
+                TodayProgressMetric("专注记录", "${state.todaySessions.size} 条", Modifier.weight(1f))
+            }
+            if (state.totalToday > 0) {
+                Spacer(Modifier.height(10.dp))
+                LinearProgressIndicator(
+                    progress = { state.todayProgress },
+                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TodayProgressMetric(label: String, value: String, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.Start) {
+        Text(
+            label,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
+            fontSize = 12.sp
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(value, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+    }
+}
+
+@Composable
+private fun SectionTitleWithTextAction(
+    text: String,
+    action: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+        TextButton(onClick = onClick) {
+            Text(action)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+        }
+    }
+}
+
 @Composable
 private fun SectionTitleWithAction(
     text: String,

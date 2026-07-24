@@ -45,3 +45,18 @@ object ManualFocusSessionFactory {
         )
     }
 }
+
+fun findOverlappingFocusSession(
+    sessions: List<FocusSessionEntity>,
+    startedAt: Long,
+    durationMinutes: Int,
+    excludedSessionId: Long? = null
+): FocusSessionEntity? {
+    if (startedAt <= 0L || durationMinutes <= 0) return null
+    val endedAt = startedAt + durationMinutes * 60_000L
+    return sessions.firstOrNull { session ->
+        session.id != excludedSessionId &&
+            startedAt < session.endedAt &&
+            endedAt > session.startedAt
+    }
+}

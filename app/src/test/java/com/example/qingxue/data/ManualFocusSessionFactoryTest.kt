@@ -78,6 +78,55 @@ class ManualFocusSessionFactoryTest {
         assertTrue(result.isFailure)
     }
 
+    @Test
+    fun overlapDetectionFindsIntersectingSessionButNotAdjacentOne() {
+        val existing = FocusSessionEntity(
+            id = 12,
+            taskId = null,
+            startedAt = millis("2026-07-24T09:00"),
+            endedAt = millis("2026-07-24T09:30"),
+            durationMinutes = 30,
+            date = "2026-07-24"
+        )
+
+        assertEquals(
+            existing,
+            findOverlappingFocusSession(
+                sessions = listOf(existing),
+                startedAt = millis("2026-07-24T09:20"),
+                durationMinutes = 20
+            )
+        )
+        assertNull(
+            findOverlappingFocusSession(
+                sessions = listOf(existing),
+                startedAt = millis("2026-07-24T09:30"),
+                durationMinutes = 20
+            )
+        )
+    }
+
+    @Test
+    fun overlapDetectionExcludesSessionBeingEdited() {
+        val existing = FocusSessionEntity(
+            id = 12,
+            taskId = null,
+            startedAt = millis("2026-07-24T09:00"),
+            endedAt = millis("2026-07-24T09:30"),
+            durationMinutes = 30,
+            date = "2026-07-24"
+        )
+
+        assertNull(
+            findOverlappingFocusSession(
+                sessions = listOf(existing),
+                startedAt = millis("2026-07-24T09:05"),
+                durationMinutes = 20,
+                excludedSessionId = existing.id
+            )
+        )
+    }
+
     private fun millis(value: String): Long =
         LocalDateTime.parse(value).atZone(zone).toInstant().toEpochMilli()
 }

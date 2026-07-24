@@ -62,6 +62,14 @@ data class StudyHistoryState(
     val sessions: List<FocusSessionEntity> = emptyList()
 )
 
+data class BackupImportPreview(
+    val json: String,
+    val taskCount: Int,
+    val sessionCount: Int,
+    val countdownCount: Int,
+    val matchCount: Int
+)
+
 private data class TaskDashboardData(
     val tasks: List<StudyTaskEntity>,
     val habitTotals: List<TaskFocusTotal>
@@ -125,6 +133,8 @@ class QingXueViewModel(
     val analysisError: StateFlow<String?> = _analysisError.asStateFlow()
     private val _backupMessage = MutableStateFlow<String?>(null)
     val backupMessage: StateFlow<String?> = _backupMessage.asStateFlow()
+    private val _backupImportPreview = MutableStateFlow<BackupImportPreview?>(null)
+    val backupImportPreview: StateFlow<BackupImportPreview?> = _backupImportPreview.asStateFlow()
     private val taskDashboardData = currentDate.flatMapLatest { date ->
         combine(
             repository.tasksForDate(date),
@@ -444,7 +454,8 @@ class QingXueViewModel(
         }
     }
 
-    fun addManualFocus(
+    fun saveManualFocus(
+        sessionId: Long?,
         selectedTaskId: Long?,
         startedAt: Long,
         durationMinutes: Int,
@@ -454,7 +465,8 @@ class QingXueViewModel(
             historyState.value.tasks.firstOrNull { it.id == id }
         }
         viewModelScope.launch {
-            repository.recordManualFocus(
+            repository.saveManualFocus(
+                sessionId = sessionId,
                 selectedTask = selectedTask,
                 startedAt = startedAt,
                 durationMinutes = durationMinutes,
@@ -493,25 +505,49 @@ class QingXueViewModel(
         }
     }
 
-    fun importBackup(uri: Uri, onThemeRestored: (String) -> Unit) {
+    fun prepareBackupImport(uri: Uri) {
         viewModelScope.launch {
             try {
-                val json = withContext(Dispatchers.IO) {
+                val (json, backup) = withContext(Dispatchers.IO) {
                     val stream = applicationContext.contentResolver.openInputStream(uri)
                         ?: error("无法读取备份文件")
-                    stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    val content = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    content to repository.previewBackup(content)
                 }
-                val restoredTheme = repository.importBackup(json)
+                _backupImportPreview.value = BackupImportPreview(
+                    json = json,
+                    taskCount = backup.tasks.size,
+                    sessionCount = backup.sessions.size,
+                    countdownCount = backup.countdownEvents.size,
+                    matchCount = backup.dailyMatches.size
+                )
+            } catch (error: Exception) {
+                _backupMessage.value = "读取失败：${error.message ?: "备份文件无效"}"
+            }
+        }
+    }
+
+    fun confirmBackupImport(onThemeRestored: (String) -> Unit) {
+        val preview = _backupImportPreview.value ?: return
+        _backupImportPreview.value = null
+        viewModelScope.launch {
+            try {
+                val restoredTheme = repository.importBackup(preview.json)
                 FocusTimerService.stop(applicationContext)
                 focusTimerStore.saveTimerState(FocusTimerState())
                 focusTimerStore.clearPendingSettlement()
                 _aiAnalysis.value = repository.latestAiAnalysis()
                 restoredTheme?.let(onThemeRestored)
+                _backupImportPreview.value = null
                 _backupMessage.value = "数据已恢复"
             } catch (error: Exception) {
                 _backupMessage.value = "恢复失败：${error.message ?: "备份文件无效"}"
             }
         }
+    }
+
+    fun cancelBackupImport() {
+        _backupImportPreview.value = null
     }
 
     fun clearBackupMessage() {
