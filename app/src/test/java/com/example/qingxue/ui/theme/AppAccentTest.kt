@@ -22,13 +22,4 @@ class AppAccentTest {
     fun storageKeysAreUnique() {
         assertTrue(AppAccent.entries.map { it.storageKey }.toSet().size == AppAccent.entries.size)
     }
-
-    @Test
-    fun visualStyleStorageRoundTripsAndDefaultsToStandard() {
-        AppVisualStyle.entries.forEach { style ->
-            assertEquals(style, AppVisualStyle.fromStorage(style.storageKey))
-        }
-        assertEquals(AppVisualStyle.Standard, AppVisualStyle.fromStorage("unknown"))
-        assertEquals(AppVisualStyle.Standard, AppVisualStyle.fromStorage(null))
-    }
 }

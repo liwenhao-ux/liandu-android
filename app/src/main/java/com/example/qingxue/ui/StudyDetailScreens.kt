@@ -56,8 +56,6 @@ import com.example.qingxue.data.FocusSessionEntity
 import com.example.qingxue.data.HabitProgressCalculator
 import com.example.qingxue.data.StudyTaskEntity
 import com.example.qingxue.data.StudyTaskType
-import com.example.qingxue.ui.theme.AppVisualStyle
-import com.example.qingxue.ui.theme.LocalAppVisualStyle
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -508,7 +506,6 @@ private fun SessionCard(
     taskTitle: String?,
     onClick: (() -> Unit)? = null
 ) {
-    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     val outcome = FocusOutcome.fromStorage(session.outcome)
     val roundResult = RoundResult.fromStorage(session.roundResult)
     val completed = session.endReason == FocusEndReason.Completed.storageValue
@@ -548,7 +545,7 @@ private fun SessionCard(
         if (roundResult != RoundResult.Unreviewed) {
             Spacer(Modifier.height(4.dp))
             Text(
-                if (isTacticalStyle) "ROUND · ${roundResult.label}" else "专注结果 · ${roundResult.label}",
+                "专注结果 · ${roundResult.label}",
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold

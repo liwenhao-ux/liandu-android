@@ -115,7 +115,6 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -138,11 +137,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -156,6 +157,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.qingxue.QingXueApp
+import com.example.qingxue.R
 import com.example.qingxue.ai.AiAnalysisResult
 import com.example.qingxue.ai.ApiKeyManager
 import com.example.qingxue.data.AiAnalysisEntity
@@ -168,8 +170,6 @@ import com.example.qingxue.music.MusicController
 import com.example.qingxue.music.MusicState
 import com.example.qingxue.rating.FormRatingSummary
 import com.example.qingxue.ui.theme.AppAccent
-import com.example.qingxue.ui.theme.AppVisualStyle
-import com.example.qingxue.ui.theme.LocalAppVisualStyle
 import com.example.qingxue.util.fullDateLabel
 import com.example.qingxue.util.shortDateLabel
 import com.example.qingxue.util.studyDate
@@ -230,12 +230,9 @@ private sealed interface DetailDestination {
 fun QingXueAppScreen(
     viewModel: QingXueViewModel,
     selectedAccent: AppAccent,
-    selectedVisualStyle: AppVisualStyle,
     onAccentSelected: (AppAccent) -> Unit,
-    onVisualStyleSelected: (AppVisualStyle) -> Unit
 ) {
     val context = LocalContext.current
-    val isTacticalStyle = selectedVisualStyle == AppVisualStyle.Tactical
     val state by viewModel.dashboardState.collectAsStateWithLifecycle()
     val history by viewModel.historyState.collectAsStateWithLifecycle()
     val focusTimerState by viewModel.focusTimerState.collectAsStateWithLifecycle()
@@ -329,7 +326,7 @@ fun QingXueAppScreen(
                             text = when (detailDestination) {
                                 DetailDestination.Form -> "FORM 详情"
                                 DetailDestination.Archive -> "归档任务"
-                                DetailDestination.FocusHistory -> if (isTacticalStyle) "Match History" else "专注历史"
+                                DetailDestination.FocusHistory -> "专注历史"
                                 is DetailDestination.Task -> {
                                     val destination = detailDestination as DetailDestination.Task
                                     val selected = history.tasks.firstOrNull {
@@ -547,9 +544,7 @@ fun QingXueAppScreen(
     if (showAppSettings) {
         AppSettingsDialog(
             selectedAccent = selectedAccent,
-            selectedVisualStyle = selectedVisualStyle,
             onAccentSelected = onAccentSelected,
-            onVisualStyleSelected = onVisualStyleSelected,
             apiKey = apiKeyInput,
             onApiKeyChange = {
                 apiKeyInput = it
@@ -745,9 +740,7 @@ private fun openMusicAccessSettings(context: Context) {
 @Composable
 private fun AppSettingsDialog(
     selectedAccent: AppAccent,
-    selectedVisualStyle: AppVisualStyle,
     onAccentSelected: (AppAccent) -> Unit,
-    onVisualStyleSelected: (AppVisualStyle) -> Unit,
     apiKey: String,
     onApiKeyChange: (String) -> Unit,
     onExportData: () -> Unit,
@@ -771,42 +764,6 @@ private fun AppSettingsDialog(
                     .heightIn(max = 560.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = "战术风格",
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            text = if (selectedVisualStyle == AppVisualStyle.Tactical) {
-                                "红黑迷彩与竞技回合文案"
-                            } else {
-                                "简洁界面，适合日常学习"
-                            },
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.64f),
-                            fontSize = 12.sp
-                        )
-                    }
-                    Switch(
-                        checked = selectedVisualStyle == AppVisualStyle.Tactical,
-                        onCheckedChange = { enabled ->
-                            onVisualStyleSelected(
-                                if (enabled) AppVisualStyle.Tactical else AppVisualStyle.Standard
-                            )
-                            if (enabled) {
-                                onAccentSelected(AppAccent.GrayPurple)
-                            } else if (selectedAccent == AppAccent.GrayPurple) {
-                                onAccentSelected(AppAccent.MistGreen)
-                            }
-                        }
-                    )
-                }
-                Spacer(Modifier.height(18.dp))
                 Text(
                     text = "主题色",
                     fontWeight = FontWeight.SemiBold,
@@ -955,7 +912,7 @@ private fun CapabilityStatusRow(
         Icon(
             imageVector = if (ready) Icons.Filled.Check else Icons.Filled.Close,
             contentDescription = null,
-            tint = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            tint = if (ready) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(10.dp))
@@ -1654,7 +1611,6 @@ private fun FocusScreen(
     onLeaveImmersive: () -> Unit
 ) {
     val context = LocalContext.current
-    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     val lifecycleOwner = LocalLifecycleOwner.current
     val musicController = remember(context) {
         (context.applicationContext as QingXueApp).musicController
@@ -1674,7 +1630,6 @@ private fun FocusScreen(
     var breakInput by rememberSaveable { mutableStateOf(timerState.breakMinutes.toString()) }
     var cyclesInput by rememberSaveable { mutableStateOf(timerState.totalCycles.toString()) }
     var showFocusSetup by rememberSaveable { mutableStateOf(false) }
-    var showPreRound by rememberSaveable { mutableStateOf(false) }
     var requestedWinCondition by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(
@@ -1729,7 +1684,6 @@ private fun FocusScreen(
         when {
             timerState.isRunning -> onPause()
             timerState.hasStarted -> requestStart(timerState.winCondition)
-            isTacticalStyle -> showPreRound = true
             else -> requestStart(selectedTaskTitle)
         }
     }
@@ -1757,6 +1711,15 @@ private fun FocusScreen(
         )
     } else {
         Box(modifier = Modifier.fillMaxSize()) {
+            Image(
+                painter = painterResource(R.drawable.study_focus_lineart),
+                contentDescription = null,
+                modifier = Modifier.matchParentSize(),
+                alignment = Alignment.CenterEnd,
+                contentScale = ContentScale.Crop,
+                alpha = 0.085f,
+                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+            )
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1810,7 +1773,7 @@ private fun FocusScreen(
                 ) {
                     Icon(Icons.Filled.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (isTacticalStyle) "Start Round" else "开始专注")
+                    Text("开始专注")
                 }
                 FloatingActionButton(
                     onClick = { showFocusSetup = true },
@@ -1821,17 +1784,6 @@ private fun FocusScreen(
                 }
             }
         }
-    }
-    if (showPreRound) {
-        PreRoundDialog(
-            initialWinCondition = selectedTaskTitle,
-            onDismiss = { showPreRound = false },
-            onAdjust = { showFocusSetup = true },
-            onStart = { condition ->
-                showPreRound = false
-                requestStart(condition)
-            }
-        )
     }
     if (showFocusSetup) {
         AlertDialog(
@@ -1937,7 +1889,6 @@ private fun ImmersiveFocusContent(
     onEnd: () -> Unit,
     onLeave: () -> Unit
 ) {
-    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
     val isFocusPhase = timerState.phase == PomodoroPhase.Focus
     val backgroundColor = if (isFocusPhase) {
         MaterialTheme.colorScheme.primaryContainer
@@ -1959,7 +1910,6 @@ private fun ImmersiveFocusContent(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .classicCamoPattern(if (isFocusPhase) 0.8f else 0.25f)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(horizontal = 24.dp)
         ) {
@@ -1983,7 +1933,7 @@ private fun ImmersiveFocusContent(
                 )
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = if (isTacticalStyle) "ROUND ${timerState.currentCycle}/${timerState.totalCycles} · ${timerState.phase.label}" else "第 ${timerState.currentCycle}/${timerState.totalCycles} 轮 · ${timerState.phase.label}",
+                    text = "第 ${timerState.currentCycle}/${timerState.totalCycles} 轮 · ${timerState.phase.label}",
                     color = indicatorColor,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -2013,10 +1963,10 @@ private fun ImmersiveFocusContent(
                             contentDescription = null
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text(if (timerState.isRunning) "暂停" else if (isTacticalStyle) "继续回合" else "继续")
+                        Text(if (timerState.isRunning) "暂停" else "继续")
                     }
                     OutlinedButton(onClick = onEnd) {
-                        Text(if (isTacticalStyle) "End Round" else "结束专注")
+                        Text("结束专注")
                     }
                 }
             }
@@ -2364,24 +2314,39 @@ private fun StatsScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
-            Column {
-                Text(
-                    "近 7 天专注",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
+            Box(modifier = Modifier.fillMaxWidth().height(144.dp)) {
+                Image(
+                    painter = painterResource(R.drawable.study_stats_lineart),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    alignment = Alignment.CenterEnd,
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.10f,
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    formatTotalMinutes(weeklyMinutes.toLong()),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 32.sp
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "今日 ${state.todayFocusMinutes} 分钟 · 连续 ${state.streakDays} 天",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
-                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxWidth(0.58f)
+                ) {
+                    Text(
+                        "近 7 天专注",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        formatTotalMinutes(weeklyMinutes.toLong()),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 32.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "今日 ${state.todayFocusMinutes} 分钟 · 连续 ${state.streakDays} 天",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                }
             }
         }
         item { WeeklyBarChart(state.recentStats) }

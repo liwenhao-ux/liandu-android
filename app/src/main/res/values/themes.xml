@@ -1,8 +1,8 @@
 <resources>
     <style name="Theme.QingXue" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:navigationBarColor">#F2F2EC</item>
-        <item name="android:statusBarColor">#F2F2EC</item>
-        <item name="android:windowBackground">#F2F2EC</item>
+        <item name="android:navigationBarColor">#F7F7F9</item>
+        <item name="android:statusBarColor">#F7F7F9</item>
+        <item name="android:windowBackground">#F7F7F9</item>
     </style>
 </resources>

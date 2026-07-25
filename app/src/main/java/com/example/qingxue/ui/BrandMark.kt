@@ -1,164 +1,32 @@
 package com.example.qingxue.ui
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import com.example.qingxue.ui.theme.AppVisualStyle
-import com.example.qingxue.ui.theme.LocalAppVisualStyle
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.example.qingxue.R
 
 @Composable
 internal fun BrandMark(modifier: Modifier = Modifier) {
-    if (LocalAppVisualStyle.current == AppVisualStyle.Tactical) {
-        TacticalBrandMark(modifier)
-    } else {
-        StandardBrandMark(modifier)
-    }
-}
-
-@Composable
-private fun StandardBrandMark(modifier: Modifier) {
-    val primary = MaterialTheme.colorScheme.primary
-    Canvas(modifier = modifier) {
-        val unit = size.minDimension
-        val center = Offset(size.width * 0.5f, size.height * 0.52f)
-        drawCircle(
-            color = primary.copy(alpha = 0.13f),
-            radius = unit * 0.43f,
-            center = center
-        )
-        drawCircle(
-            color = primary,
-            radius = unit * 0.34f,
-            center = center,
-            style = Stroke(width = unit * 0.075f)
-        )
-        drawLine(
-            color = primary,
-            start = Offset(size.width * 0.50f, size.height * 0.05f),
-            end = Offset(size.width * 0.50f, size.height * 0.18f),
-            strokeWidth = unit * 0.075f,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = primary,
-            start = Offset(size.width * 0.29f, size.height * 0.52f),
-            end = Offset(size.width * 0.45f, size.height * 0.66f),
-            strokeWidth = unit * 0.085f,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = primary,
-            start = Offset(size.width * 0.45f, size.height * 0.66f),
-            end = Offset(size.width * 0.73f, size.height * 0.36f),
-            strokeWidth = unit * 0.085f,
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-@Composable
-private fun TacticalBrandMark(modifier: Modifier) {
-    val red = Color(0xFFE0273A)
-    val white = Color(0xFFFFF4F5)
-    val black = Color(0xFF171719)
-
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val unit = size.minDimension
-
-        drawPath(
-            Path().apply {
-                moveTo(w * 0.50f, h * 0.11f)
-                lineTo(w * 0.67f, h * 0.11f)
-                lineTo(w * 0.36f, h * 0.91f)
-                lineTo(w * 0.20f, h * 0.91f)
-                close()
-            },
-            red
-        )
-        drawPath(
-            Path().apply {
-                moveTo(w * 0.13f, h * 0.11f)
-                lineTo(w * 0.67f, h * 0.11f)
-                lineTo(w * 0.61f, h * 0.27f)
-                lineTo(w * 0.18f, h * 0.27f)
-                close()
-            },
-            red
-        )
-        drawPath(
-            Path().apply {
-                moveTo(w * 0.21f, h * 0.40f)
-                lineTo(w * 0.51f, h * 0.40f)
-                lineTo(w * 0.45f, h * 0.56f)
-                lineTo(w * 0.27f, h * 0.56f)
-                close()
-            },
-            red
-        )
-        drawPath(
-            Path().apply {
-                moveTo(w * 0.70f, h * 0.11f)
-                lineTo(w * 0.86f, h * 0.11f)
-                lineTo(w * 0.57f, h * 0.76f)
-                lineTo(w * 0.89f, h * 0.76f)
-                lineTo(w * 0.83f, h * 0.91f)
-                lineTo(w * 0.39f, h * 0.91f)
-                close()
-            },
-            white
-        )
-
-        val center = Offset(w * 0.50f, h * 0.50f)
-        drawCircle(black, radius = unit * 0.18f, center = center)
-        drawCircle(white, radius = unit * 0.15f, center = center, style = Stroke(unit * 0.020f))
-        drawCircle(white, radius = unit * 0.115f, center = center, style = Stroke(unit * 0.014f))
-
-        val crosshairs = listOf(
-            Offset(w * 0.50f, h * 0.31f) to Offset(w * 0.50f, h * 0.39f),
-            Offset(w * 0.50f, h * 0.61f) to Offset(w * 0.50f, h * 0.69f),
-            Offset(w * 0.31f, h * 0.50f) to Offset(w * 0.39f, h * 0.50f),
-            Offset(w * 0.61f, h * 0.50f) to Offset(w * 0.69f, h * 0.50f)
-        )
-        crosshairs.forEach { (start, end) ->
-            drawLine(black, start, end, strokeWidth = unit * 0.052f, cap = StrokeCap.Butt)
-            drawLine(white, start, end, strokeWidth = unit * 0.026f, cap = StrokeCap.Butt)
-        }
-
-        drawPath(
-            Path().apply {
-                moveTo(w * 0.45f, h * 0.49f)
-                lineTo(w * 0.55f, h * 0.49f)
-                lineTo(w * 0.55f, h * 0.59f)
-                lineTo(w * 0.45f, h * 0.59f)
-                close()
-            },
-            white
-        )
-        drawPath(
-            Path().apply {
-                moveTo(w * 0.47f, h * 0.49f)
-                lineTo(w * 0.47f, h * 0.46f)
-                cubicTo(w * 0.47f, h * 0.41f, w * 0.53f, h * 0.41f, w * 0.53f, h * 0.46f)
-                lineTo(w * 0.53f, h * 0.49f)
-            },
-            white,
-            style = Stroke(width = unit * 0.022f, cap = StrokeCap.Round)
-        )
-        drawCircle(black, radius = unit * 0.012f, center = Offset(w * 0.50f, h * 0.53f))
-        drawLine(
-            black,
-            Offset(w * 0.50f, h * 0.53f),
-            Offset(w * 0.50f, h * 0.56f),
-            strokeWidth = unit * 0.018f,
-            cap = StrokeCap.Round
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(R.drawable.anime_brand_portrait),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
     }
 }

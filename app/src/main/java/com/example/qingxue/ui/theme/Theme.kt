@@ -27,47 +27,47 @@ enum class AppAccent(
 ) {
     GrayPurple(
         storageKey = "gray_purple",
-        label = "低饱和红",
-        previewColor = Color(0xFFB33E47),
-        lightPrimary = Color(0xFFA2353F),
-        lightContainer = Color(0xFFF2D8DA),
-        lightOnContainer = Color(0xFF35191C),
-        darkPrimary = Color(0xFFDF626A),
-        darkContainer = Color(0xFF52282D),
-        darkOnContainer = Color(0xFFFFECEE)
+        label = "雾紫",
+        previewColor = Color(0xFFA89FB5),
+        lightPrimary = Color(0xFF71697E),
+        lightContainer = Color(0xFFEAE5EF),
+        lightOnContainer = Color(0xFF302B37),
+        darkPrimary = Color(0xFFC4B9D0),
+        darkContainer = Color(0xFF494252),
+        darkOnContainer = Color(0xFFF3EDF7)
     ),
     MistGreen(
         storageKey = "mist_green",
-        label = "雾绿",
-        previewColor = Color(0xFF82948A),
-        lightPrimary = Color(0xFF66766E),
-        lightContainer = Color(0xFFDCE6E0),
-        lightOnContainer = Color(0xFF25312B),
-        darkPrimary = Color(0xFFA5B5AC),
-        darkContainer = Color(0xFF414F48),
-        darkOnContainer = Color(0xFFEAF2EE)
+        label = "浅苔",
+        previewColor = Color(0xFF9EADA4),
+        lightPrimary = Color(0xFF5F746A),
+        lightContainer = Color(0xFFE2EBE6),
+        lightOnContainer = Color(0xFF29332E),
+        darkPrimary = Color(0xFFB8C9BF),
+        darkContainer = Color(0xFF3F4D46),
+        darkOnContainer = Color(0xFFEDF4F0)
     ),
     SlateBlue(
         storageKey = "slate_blue",
-        label = "灰蓝",
-        previewColor = Color(0xFF81909A),
-        lightPrimary = Color(0xFF65737D),
-        lightContainer = Color(0xFFDDE4E8),
-        lightOnContainer = Color(0xFF263039),
-        darkPrimary = Color(0xFFA5B2BA),
-        darkContainer = Color(0xFF424E56),
-        darkOnContainer = Color(0xFFECF1F4)
+        label = "雾蓝",
+        previewColor = Color(0xFF9CAEBB),
+        lightPrimary = Color(0xFF607789),
+        lightContainer = Color(0xFFE2EBF1),
+        lightOnContainer = Color(0xFF28343D),
+        darkPrimary = Color(0xFFB8CAD7),
+        darkContainer = Color(0xFF3E4D58),
+        darkOnContainer = Color(0xFFEDF3F7)
     ),
     DustRose(
         storageKey = "dust_rose",
-        label = "暮粉",
-        previewColor = Color(0xFF9A8288),
-        lightPrimary = Color(0xFF806B70),
-        lightContainer = Color(0xFFEADDE0),
-        lightOnContainer = Color(0xFF35262A),
-        darkPrimary = Color(0xFFB8A2A7),
-        darkContainer = Color(0xFF554247),
-        darkOnContainer = Color(0xFFF4E9EB)
+        label = "月灰",
+        previewColor = Color(0xFFA9AAA5),
+        lightPrimary = Color(0xFF70716E),
+        lightContainer = Color(0xFFE9E9E5),
+        lightOnContainer = Color(0xFF30312F),
+        darkPrimary = Color(0xFFC5C6C0),
+        darkContainer = Color(0xFF484946),
+        darkOnContainer = Color(0xFFF2F2EE)
     );
 
     companion object {
@@ -75,19 +75,6 @@ enum class AppAccent(
             entries.firstOrNull { it.storageKey == value } ?: MistGreen
     }
 }
-
-enum class AppVisualStyle(val storageKey: String) {
-    Standard("standard"),
-    Tactical("tactical");
-
-    companion object {
-        fun fromStorage(value: String?): AppVisualStyle =
-            entries.firstOrNull { it.storageKey == value } ?: Standard
-    }
-}
-
-val LocalAppVisualStyle = staticCompositionLocalOf { AppVisualStyle.Standard }
-
 private fun lightColors(accent: AppAccent): ColorScheme = lightColorScheme(
     primary = accent.lightPrimary,
     onPrimary = Color(0xFFFFFFFF),
@@ -95,19 +82,19 @@ private fun lightColors(accent: AppAccent): ColorScheme = lightColorScheme(
     onPrimaryContainer = accent.lightOnContainer,
     secondary = accent.lightPrimary,
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE7E7E2),
+    secondaryContainer = Color(0xFFECECF0),
     onSecondaryContainer = Color(0xFF242527),
     tertiary = Color(0xFF5F6265),
     onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFD9DAD6),
+    tertiaryContainer = Color(0xFFE4E4E8),
     onTertiaryContainer = Color(0xFF202224),
-    background = Color(0xFFF3F1EE),
-    surface = Color(0xFFFBF9F6),
-    surfaceVariant = Color(0xFFE5E5DF),
+    background = Color(0xFFF7F7F9),
+    surface = Color(0xFFFFFFFF),
+    surfaceVariant = Color(0xFFECECF0),
     onBackground = Color(0xFF1B1D1F),
     onSurface = Color(0xFF1B1D1F),
     outline = Color(0xFF747679),
-    outlineVariant = Color(0xFFC8C8C2)
+    outlineVariant = Color(0xFFCECED4)
 )
 
 private fun darkColors(accent: AppAccent): ColorScheme = darkColorScheme(
@@ -166,15 +153,12 @@ private val AppTypography = Typography(
 @Composable
 fun QingXueTheme(
     accent: AppAccent = AppAccent.MistGreen,
-    visualStyle: AppVisualStyle = AppVisualStyle.Standard,
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    CompositionLocalProvider(LocalAppVisualStyle provides visualStyle) {
-        MaterialTheme(
-            colorScheme = if (darkTheme) darkColors(accent) else lightColors(accent),
-            typography = AppTypography,
-            content = content
-        )
-    }
+    MaterialTheme(
+        colorScheme = if (darkTheme) darkColors(accent) else lightColors(accent),
+        typography = AppTypography,
+        content = content
+    )
 }

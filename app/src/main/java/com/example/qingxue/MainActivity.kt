@@ -11,7 +11,6 @@ import com.example.qingxue.ui.QingXueAppScreen
 import com.example.qingxue.ui.QingXueViewModel
 import com.example.qingxue.ui.QingXueViewModelFactory
 import com.example.qingxue.ui.theme.AppAccent
-import com.example.qingxue.ui.theme.AppVisualStyle
 import com.example.qingxue.ui.theme.QingXueTheme
 import kotlinx.coroutines.launch
 
@@ -31,21 +30,14 @@ class MainActivity : ComponentActivity() {
             val accent by app.themePreferenceStore.accent.collectAsStateWithLifecycle(
                 initialValue = AppAccent.MistGreen
             )
-            val visualStyle by app.themePreferenceStore.visualStyle.collectAsStateWithLifecycle(
-                initialValue = AppVisualStyle.Standard
-            )
             val scope = rememberCoroutineScope()
 
-            QingXueTheme(accent = accent, visualStyle = visualStyle) {
+            QingXueTheme(accent = accent) {
                 QingXueAppScreen(
                     viewModel = viewModel,
                     selectedAccent = accent,
-                    selectedVisualStyle = visualStyle,
                     onAccentSelected = { selected ->
                         scope.launch { app.themePreferenceStore.setAccent(selected) }
-                    },
-                    onVisualStyleSelected = { selected ->
-                        scope.launch { app.themePreferenceStore.setVisualStyle(selected) }
                     }
                 )
             }
