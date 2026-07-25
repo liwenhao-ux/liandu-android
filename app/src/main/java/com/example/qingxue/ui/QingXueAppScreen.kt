@@ -1055,6 +1055,16 @@ private fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
+            CompanionGreeting(
+                title = "今天，一起认真",
+                subtitle = when {
+                    incompleteTasks.isEmpty() && orderedTasks.isNotEmpty() -> "任务完成了，做得漂亮。"
+                    incompleteTasks.isEmpty() -> "先选一件真正重要的事吧。"
+                    else -> "还有 ${incompleteTasks.size} 项待完成，慢慢来。"
+                }
+            )
+        }
+        item {
             TodayRoundCard(
                 match = state.dailyMatch,
                 tasks = state.todayTasks,
@@ -1073,10 +1083,10 @@ private fun HomeScreen(
         }
         when {
             orderedTasks.isEmpty() -> item {
-                EmptyCard("今天还没有任务。")
+                CompanionEmptyState("今天还没有任务。")
             }
             visibleTasks.isEmpty() -> item {
-                EmptyCard("今天的任务已经全部完成。")
+                CompanionEmptyState("今天的任务已经全部完成。", mood = CompanionMood.Celebrate)
             }
             else -> {
                 items(visibleTasks, key = { "home-task-${it.id}" }) { task ->
@@ -1134,7 +1144,7 @@ private fun HomeScreen(
             }
         }
         if (state.countdowns.isEmpty()) {
-            item { EmptyCard("还没有重要日期。") }
+            item { CompanionEmptyState("还没有重要日期。") }
         } else {
             items(visibleCountdowns, key = { "countdown-${it.event.id}" }) { item ->
                 CountdownRow(
@@ -1405,7 +1415,7 @@ private fun TasksScreen(
         ) {
             item { TaskGroupHeader("长期习惯", habits.size) }
             if (habits.isEmpty()) {
-                item { EmptyCard("还没有长期习惯。") }
+                item { CompanionEmptyState("还没有长期习惯。") }
             } else {
                 items(habits, key = { "habit-${it.id}" }) { task ->
                     TaskRow(
@@ -1420,7 +1430,7 @@ private fun TasksScreen(
             item { Spacer(Modifier.height(24.dp)) }
             item { TaskGroupHeader("今日任务", oneTimeTasks.size) }
             if (oneTimeTasks.isEmpty()) {
-                item { EmptyCard("今天还没有一次任务。") }
+                item { CompanionEmptyState("今天还没有一次任务。", mood = CompanionMood.Cheer) }
             } else {
                 items(oneTimeTasks, key = { "task-${it.id}" }) { task ->
                     TaskRow(
@@ -1767,13 +1777,27 @@ private fun FocusScreen(
                         modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = selectedTaskTitle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            StudyCompanion(
+                                mood = CompanionMood.Focus,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = selectedTaskTitle,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "这一轮，我陪你。",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                         Spacer(Modifier.height(18.dp))
                         TimerDial(
                             remainingSeconds = remainingSeconds,
@@ -1787,6 +1811,7 @@ private fun FocusScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp
                         )
+
                     }
                 }
                 if (musicState.isAvailable || musicState.title.isNotBlank()) {
@@ -2364,23 +2389,32 @@ private fun StatsScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
-            Column {
-                Text(
-                    "近 7 天专注",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    formatTotalMinutes(weeklyMinutes.toLong()),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 32.sp
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "今日 ${state.todayFocusMinutes} 分钟 · 连续 ${state.streakDays} 天",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "近 7 天专注",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        formatTotalMinutes(weeklyMinutes.toLong()),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 32.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "今日 ${state.todayFocusMinutes} 分钟 · 连续 ${state.streakDays} 天",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                }
+                StudyCompanion(
+                    mood = if (weeklyMinutes > 0) CompanionMood.Celebrate else CompanionMood.Focus,
+                    modifier = Modifier.size(86.dp)
                 )
             }
         }
