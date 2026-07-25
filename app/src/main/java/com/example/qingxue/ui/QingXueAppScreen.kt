@@ -79,9 +79,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -93,9 +95,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -138,7 +143,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -156,7 +160,6 @@ import com.example.qingxue.ai.AiAnalysisResult
 import com.example.qingxue.ai.ApiKeyManager
 import com.example.qingxue.data.AiAnalysisEntity
 import com.example.qingxue.data.CountdownEventEntity
-import com.example.qingxue.data.DailyQuoteEntity
 import com.example.qingxue.data.StudyTaskEntity
 import com.example.qingxue.data.StudyTaskType
 import com.example.qingxue.focus.FocusTimerState
@@ -170,11 +173,11 @@ import com.example.qingxue.ui.theme.LocalAppVisualStyle
 import com.example.qingxue.util.fullDateLabel
 import com.example.qingxue.util.shortDateLabel
 import com.example.qingxue.util.studyDate
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
-import kotlin.math.abs
 
 private enum class Screen(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Home("首页", Icons.Filled.Home),
@@ -318,7 +321,7 @@ fun QingXueAppScreen(
                 TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (detailDestination == null) {
+                        if (detailDestination == null && currentScreen == Screen.Home) {
                             BrandMark(Modifier.size(30.dp))
                             Spacer(Modifier.width(10.dp))
                         }
@@ -348,7 +351,7 @@ fun QingXueAppScreen(
                     }
                 },
                 actions = {
-                    if (detailDestination == null) {
+                    if (detailDestination == null && currentScreen == Screen.Home) {
                         IconButton(onClick = { showAppSettings = true }) {
                             Icon(Icons.Filled.Settings, contentDescription = "外观与通知设置")
                         }
@@ -461,9 +464,6 @@ fun QingXueAppScreen(
                     null -> when (screen) {
                         Screen.Home -> HomeScreen(
                             state = state,
-                            onOpenFormDetails = {
-                                detailDestination = DetailDestination.Form
-                            },
                             onChooseDailyMatch = { showRoundPicker = true },
                             onOpenTasks = { currentScreen = Screen.Tasks },
                             onStartFocus = { requestedTaskId ->
@@ -1020,7 +1020,6 @@ private fun ThemeAccentOption(
 @Composable
 private fun HomeScreen(
     state: DashboardState,
-    onOpenFormDetails: () -> Unit,
     onChooseDailyMatch: () -> Unit,
     onOpenTasks: () -> Unit,
     onStartFocus: (Long?) -> Unit,
@@ -1033,6 +1032,7 @@ private fun HomeScreen(
 ) {
     val context = LocalContext.current
     var showCountdownForm by rememberSaveable { mutableStateOf(false) }
+    var showAllCountdowns by rememberSaveable { mutableStateOf(false) }
     var eventTitle by rememberSaveable { mutableStateOf("") }
     var eventDescription by rememberSaveable { mutableStateOf("") }
     var eventDate by rememberSaveable {
@@ -1048,10 +1048,11 @@ private fun HomeScreen(
     )
     val incompleteTasks = orderedTasks.filterNot { it.completed }
     val visibleTasks = incompleteTasks.take(3)
+    val visibleCountdowns = if (showAllCountdowns) state.countdowns else state.countdowns.take(1)
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             TodayRoundCard(
@@ -1062,21 +1063,20 @@ private fun HomeScreen(
                 onStart = onStartFocus
             )
         }
-        item { TodayProgressCard(state) }
 
         item {
             SectionTitleWithTextAction(
                 text = "今日任务",
-                action = "查看全部",
+                action = "全部",
                 onClick = onOpenTasks
             )
         }
         when {
-            orderedTasks.isEmpty() -> {
-                item { EmptyCard("今天还没有任务，去任务页添加一个可以完成的小目标。") }
+            orderedTasks.isEmpty() -> item {
+                EmptyCard("今天还没有任务。")
             }
-            visibleTasks.isEmpty() -> {
-                item { EmptyCard("今天的任务已经全部完成。") }
+            visibleTasks.isEmpty() -> item {
+                EmptyCard("今天的任务已经全部完成。")
             }
             else -> {
                 items(visibleTasks, key = { "home-task-${it.id}" }) { task ->
@@ -1089,21 +1089,15 @@ private fun HomeScreen(
                 }
                 if (incompleteTasks.size > visibleTasks.size) {
                     item {
-                        TextButton(
-                            onClick = onOpenTasks,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                        TextButton(onClick = onOpenTasks, modifier = Modifier.fillMaxWidth()) {
                             Text("还有 ${incompleteTasks.size - visibleTasks.size} 项未完成")
-                            Icon(
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null
-                            )
                         }
                     }
                 }
             }
         }
 
+        item { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
         item {
             SectionTitleWithAction(
                 text = "重要日",
@@ -1140,17 +1134,9 @@ private fun HomeScreen(
             }
         }
         if (state.countdowns.isEmpty()) {
-            item { EmptyCard("添加考试或截止日期，让重要目标始终在眼前。") }
+            item { EmptyCard("还没有重要日期。") }
         } else {
-            item {
-                CountdownHero(
-                    item = state.countdowns.first(),
-                    onClick = { onEditCountdown(state.countdowns.first().event) },
-                    onTogglePinned = { onToggleCountdownPinned(state.countdowns.first().event) },
-                    onDelete = { onDeleteCountdown(state.countdowns.first().event) }
-                )
-            }
-            items(state.countdowns.drop(1), key = { "countdown-${it.event.id}" }) { item ->
+            items(visibleCountdowns, key = { "countdown-${it.event.id}" }) { item ->
                 CountdownRow(
                     item = item,
                     onClick = { onEditCountdown(item.event) },
@@ -1158,57 +1144,19 @@ private fun HomeScreen(
                     onDelete = { onDeleteCountdown(item.event) }
                 )
             }
-        }
-
-        state.dailyQuote?.let { quote -> item { DailyQuoteLine(quote) } }
-    }
-}
-
-@Composable
-private fun TodayProgressCard(state: DashboardState) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(Modifier.fillMaxWidth().padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TodayProgressMetric("今日专注", "${state.todayFocusMinutes} 分钟", Modifier.weight(1f))
-                TodayProgressMetric(
-                    "完成任务",
-                    "${state.completedToday}/${state.totalToday}",
-                    Modifier.weight(1f)
-                )
-                TodayProgressMetric("专注记录", "${state.todaySessions.size} 条", Modifier.weight(1f))
-            }
-            if (state.totalToday > 0) {
-                Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(
-                    progress = { state.todayProgress },
-                    modifier = Modifier.fillMaxWidth().height(6.dp),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+            if (state.countdowns.size > 1) {
+                item {
+                    TextButton(
+                        onClick = { showAllCountdowns = !showAllCountdowns },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (showAllCountdowns) "收起" else "查看全部 ${state.countdowns.size} 个")
+                    }
+                }
             }
         }
     }
 }
-
-@Composable
-private fun TodayProgressMetric(label: String, value: String, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.Start) {
-        Text(
-            label,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
-            fontSize = 12.sp
-        )
-        Spacer(Modifier.height(3.dp))
-        Text(value, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
-    }
-}
-
 @Composable
 private fun SectionTitleWithTextAction(
     text: String,
@@ -1318,105 +1266,6 @@ private fun CountdownForm(
 }
 
 @Composable
-private fun CountdownHero(
-    item: CountdownItem,
-    onClick: () -> Unit,
-    onTogglePinned: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val event = item.event
-    val days = item.daysRemaining
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(start = 18.dp, top = 14.dp, end = 8.dp, bottom = 18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = event.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 21.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(onClick = onTogglePinned, modifier = Modifier.size(40.dp)) {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
-                        contentDescription = if (event.isPinned) "取消置顶${event.title}" else "置顶${event.title}",
-                        tint = if (event.isPinned) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.35f)
-                        }
-                    )
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Filled.Delete, contentDescription = "删除${event.title}")
-                }
-            }
-            Text(
-                text = fullDateLabel(event.targetDate),
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                fontSize = 13.sp
-            )
-            if (event.description.isNotBlank()) {
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    text = event.description,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f),
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            when {
-                days > 0 -> {
-                    Text(
-                        text = "还有",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f),
-                        fontSize = 13.sp
-                    )
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = days.toString(),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 52.sp,
-                            lineHeight = 54.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "天",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 18.sp,
-                            modifier = Modifier.padding(start = 5.dp, bottom = 7.dp)
-                        )
-                    }
-                }
-                days == 0L -> Text(
-                    text = "就是今天",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 36.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                else -> Text(
-                    text = "已过去 ${abs(days)} 天",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun CountdownRow(
     item: CountdownItem,
     onClick: () -> Unit,
@@ -1424,78 +1273,72 @@ private fun CountdownRow(
     onDelete: () -> Unit
 ) {
     val event = item.event
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    var showMenu by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 14.dp, top = 9.dp, bottom = 9.dp),
+            modifier = Modifier.fillMaxWidth().smoothCardClick(onClick).padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (event.isPinned) {
+                        Icon(
+                            Icons.Filled.Star,
+                            contentDescription = "已置顶",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = event.title,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Text(
-                    text = event.title,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = if (event.description.isBlank()) {
-                        fullDateLabel(event.targetDate)
-                    } else {
-                        "${fullDateLabel(event.targetDate)} · ${event.description}"
-                    },
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                    text = fullDateLabel(event.targetDate),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1
                 )
             }
             Text(
                 text = compactCountdownText(item.daysRemaining),
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = if (item.daysRemaining >= 0) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                modifier = Modifier.padding(start = 8.dp)
+                modifier = Modifier.padding(start = 12.dp)
             )
-            IconButton(onClick = onTogglePinned, modifier = Modifier.size(40.dp)) {
-                Icon(
-                    imageVector = Icons.Filled.Star,
-                    contentDescription = if (event.isPinned) "取消置顶${event.title}" else "置顶${event.title}",
-                    tint = if (event.isPinned) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.32f)
-                    }
-                )
-            }
-            IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Filled.Delete, contentDescription = "删除${event.title}")
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "${event.title}更多操作")
+                }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(if (event.isPinned) "取消置顶" else "置顶") },
+                        onClick = {
+                            showMenu = false
+                            onTogglePinned()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("删除", color = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        }
+                    )
+                }
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
-
-@Composable
-private fun DailyQuoteLine(quote: DailyQuoteEntity) {
-    val source = if (quote.source in setOf("轻学", "练度", "LOCK IN")) "" else "  ·  ${quote.source}"
-    Text(
-        text = "“${quote.text}”$source",
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 18.dp),
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f),
-        fontSize = 12.sp,
-        lineHeight = 18.sp,
-        fontStyle = FontStyle.Italic,
-        textAlign = TextAlign.Center,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis
-    )
-}
-
 private fun compactCountdownText(days: Long): String {
     return when {
         days > 0 -> "剩 $days 天"
@@ -1538,185 +1381,208 @@ private fun TasksScreen(
     onEditTask: (StudyTaskEntity) -> Unit,
     onDeleteTask: (StudyTaskEntity) -> Unit
 ) {
-    var title by rememberSaveable { mutableStateOf("") }
-    var subject by rememberSaveable { mutableStateOf("") }
-    var description by rememberSaveable { mutableStateOf("") }
-    var minutes by rememberSaveable { mutableStateOf("45") }
-    var taskKind by rememberSaveable { mutableStateOf(TaskKind.OneTime) }
-    var studyType by rememberSaveable { mutableStateOf(StudyTaskType.General) }
-    var isCore by rememberSaveable { mutableStateOf(false) }
-    var selectedHabitId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showTaskForm by rememberSaveable { mutableStateOf(false) }
-    val habits = tasks.filter { it.isHabit }
-    val oneTimeTasks = tasks.filterNot { it.isHabit }
+    var dialogInitialHabitId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val habits = tasks.filter { it.isHabit }.sortedByDescending { it.isCore }
+    val oneTimeTasks = tasks.filterNot { it.isHabit }.sortedWith(
+        compareBy<StudyTaskEntity> { it.completed }
+            .thenByDescending { it.isCore }
+            .thenByDescending { it.createdAt }
+    )
 
-    LaunchedEffect(initialHabitId, habits) {
-        if (initialHabitId != null && habits.any { it.id == initialHabitId }) {
-            taskKind = TaskKind.OneTime
-            selectedHabitId = initialHabitId
+    LaunchedEffect(initialHabitId) {
+        if (initialHabitId != null) {
+            dialogInitialHabitId = initialHabitId
             showTaskForm = true
             onInitialHabitConsumed()
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            SectionTitleWithAction(
-                text = "任务",
-                expanded = showTaskForm,
-                onClick = { showTaskForm = !showTaskForm }
-            )
-        }
-        item {
-            AnimatedVisibility(
-                visible = showTaskForm,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                ColumnCard {
-                    Text("新增任务", fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(10.dp))
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        TaskKind.entries.forEachIndexed { index, kind ->
-                            SegmentedButton(
-                                selected = taskKind == kind,
-                                onClick = {
-                                    taskKind = kind
-                                    if (kind == TaskKind.Habit) selectedHabitId = null
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(
-                                    index = index,
-                                    count = TaskKind.entries.size
-                                )
-                            ) {
-                                Text(kind.label)
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Text("学习类型", fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.height(6.dp))
-                    StudyTypePicker(
-                        selected = studyType,
-                        onSelected = { studyType = it }
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp)
+        ) {
+            item { TaskGroupHeader("长期习惯", habits.size) }
+            if (habits.isEmpty()) {
+                item { EmptyCard("还没有长期习惯。") }
+            } else {
+                items(habits, key = { "habit-${it.id}" }) { task ->
+                    TaskRow(
+                        task = task,
+                        onClick = { onEditTask(task) },
+                        onToggle = { onToggleTask(task) },
+                        onDelete = { onDeleteTask(task) }
                     )
-                    Spacer(Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(checked = isCore, onCheckedChange = { isCore = it })
-                        Text("核心任务")
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it.take(60) },
-                        label = { Text(if (taskKind == TaskKind.Habit) "习惯名称" else "任务名称") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                }
+            }
+
+            item { Spacer(Modifier.height(24.dp)) }
+            item { TaskGroupHeader("今日任务", oneTimeTasks.size) }
+            if (oneTimeTasks.isEmpty()) {
+                item { EmptyCard("今天还没有一次任务。") }
+            } else {
+                items(oneTimeTasks, key = { "task-${it.id}" }) { task ->
+                    TaskRow(
+                        task = task,
+                        onClick = { onEditTask(task) },
+                        onToggle = { onToggleTask(task) },
+                        onDelete = { onDeleteTask(task) }
                     )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it.take(240) },
-                        label = { Text("描述") },
-                        placeholder = { Text("目标、范围或完成标准") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 3
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = subject,
-                            onValueChange = { subject = it.take(30) },
-                            label = { Text("科目") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = minutes,
-                            onValueChange = { minutes = it.filter(Char::isDigit).take(3) },
-                            label = {
-                                Text(
-                                    if (taskKind == TaskKind.Habit) "每日目标" else "预计分钟"
-                                )
-                            },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                    }
-                    if (taskKind == TaskKind.OneTime && habits.isNotEmpty()) {
-                        Spacer(Modifier.height(10.dp))
-                        Text("所属习惯（可选）", fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.height(6.dp))
-                        HabitPicker(
-                            habits = habits,
-                            selectedHabitId = selectedHabitId,
-                            onSelected = { selectedHabitId = it }
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Button(
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = title.isNotBlank(),
-                        onClick = {
-                            onAddTask(
-                                title,
-                                subject,
-                                description,
-                                minutes.toIntOrNull() ?: 45,
-                                taskKind == TaskKind.Habit,
-                                studyType.storageValue,
-                                isCore,
-                                selectedHabitId.takeIf { taskKind == TaskKind.OneTime }
-                            )
-                            title = ""
-                            subject = ""
-                            description = ""
-                            minutes = "45"
-                            studyType = StudyTaskType.General
-                            isCore = false
-                            selectedHabitId = null
-                            showTaskForm = false
-                        }
-                    ) {
-                        Text("添加")
-                    }
                 }
             }
         }
-        item { SectionTitle("长期习惯") }
-        if (habits.isEmpty()) {
-            item { EmptyCard("还没有长期习惯。") }
-        } else {
-            items(habits, key = { "habit-" + it.id }) { task ->
-                TaskRow(
-                    task = task,
-                    onClick = { onEditTask(task) },
-                    onToggle = { onToggleTask(task) },
-                    onDelete = { onDeleteTask(task) }
-                )
-            }
+
+        FloatingActionButton(
+            onClick = {
+                dialogInitialHabitId = null
+                showTaskForm = true
+            },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp)
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = "新增任务")
         }
-        item { SectionTitle("今日一次任务") }
-        if (oneTimeTasks.isEmpty()) {
-            item { EmptyCard("今天还没有一次任务。") }
-        } else {
-            items(oneTimeTasks, key = { "task-" + it.id }) { task ->
-                TaskRow(
-                    task = task,
-                    onClick = { onEditTask(task) },
-                    onToggle = { onToggleTask(task) },
-                    onDelete = { onDeleteTask(task) }
-                )
+    }
+
+    if (showTaskForm) {
+        TaskCreateDialog(
+            tasks = tasks,
+            initialHabitId = dialogInitialHabitId,
+            onDismiss = {
+                showTaskForm = false
+                dialogInitialHabitId = null
+            },
+            onAddTask = { title, subject, description, minutes, isHabit, studyType, isCore, habitId ->
+                onAddTask(title, subject, description, minutes, isHabit, studyType, isCore, habitId)
+                showTaskForm = false
+                dialogInitialHabitId = null
             }
-        }
+        )
+    }
+}
+
+@Composable
+private fun TaskCreateDialog(
+    tasks: List<StudyTaskEntity>,
+    initialHabitId: Long?,
+    onDismiss: () -> Unit,
+    onAddTask: (String, String, String, Int, Boolean, String, Boolean, Long?) -> Unit
+) {
+    var title by rememberSaveable(initialHabitId) { mutableStateOf("") }
+    var subject by rememberSaveable(initialHabitId) { mutableStateOf("") }
+    var description by rememberSaveable(initialHabitId) { mutableStateOf("") }
+    var minutes by rememberSaveable(initialHabitId) { mutableStateOf("45") }
+    var taskKind by rememberSaveable(initialHabitId) { mutableStateOf(TaskKind.OneTime) }
+    var studyType by rememberSaveable(initialHabitId) { mutableStateOf(StudyTaskType.General) }
+    var isCore by rememberSaveable(initialHabitId) { mutableStateOf(false) }
+    var selectedHabitId by rememberSaveable(initialHabitId) { mutableStateOf(initialHabitId) }
+    var showAdvanced by rememberSaveable(initialHabitId) { mutableStateOf(initialHabitId != null) }
+    val habits = tasks.filter { it.isHabit && !it.isArchived }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (taskKind == TaskKind.Habit) "新增习惯" else "新增任务") },
+        text = {
+            Column(
+                modifier = Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    TaskKind.entries.forEachIndexed { index, kind ->
+                        SegmentedButton(
+                            selected = taskKind == kind,
+                            onClick = {
+                                taskKind = kind
+                                if (kind == TaskKind.Habit) selectedHabitId = null
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index, TaskKind.entries.size)
+                        ) { Text(kind.label) }
+                    }
+                }
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it.take(60) },
+                    label = { Text(if (taskKind == TaskKind.Habit) "习惯名称" else "任务名称") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = subject,
+                        onValueChange = { subject = it.take(30) },
+                        label = { Text("科目") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = minutes,
+                        onValueChange = { minutes = it.filter(Char::isDigit).take(3) },
+                        label = { Text(if (taskKind == TaskKind.Habit) "每日目标" else "预计分钟") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                }
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it.take(240) },
+                    label = { Text("说明（可选）") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 3
+                )
+                TextButton(onClick = { showAdvanced = !showAdvanced }) {
+                    Text(if (showAdvanced) "收起更多选项" else "更多选项")
+                }
+                AnimatedVisibility(visible = showAdvanced) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("学习类型", fontWeight = FontWeight.Medium)
+                        StudyTypePicker(selected = studyType, onSelected = { studyType = it })
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = isCore, onCheckedChange = { isCore = it })
+                            Text("设为核心任务")
+                        }
+                        if (taskKind == TaskKind.OneTime && habits.isNotEmpty()) {
+                            Text("所属习惯（可选）", fontWeight = FontWeight.Medium)
+                            HabitPicker(
+                                habits = habits,
+                                selectedHabitId = selectedHabitId,
+                                onSelected = { selectedHabitId = it }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = title.isNotBlank(),
+                onClick = {
+                    onAddTask(
+                        title,
+                        subject,
+                        description,
+                        minutes.toIntOrNull() ?: 45,
+                        taskKind == TaskKind.Habit,
+                        studyType.storageValue,
+                        isCore,
+                        selectedHabitId.takeIf { taskKind == TaskKind.OneTime }
+                    )
+                }
+            ) { Text("添加") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
+}
+
+@Composable
+private fun TaskGroupHeader(title: String, count: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+        Text("$count", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
     }
 }
 @Composable
@@ -1863,7 +1729,8 @@ private fun FocusScreen(
         when {
             timerState.isRunning -> onPause()
             timerState.hasStarted -> requestStart(timerState.winCondition)
-            else -> showPreRound = true
+            isTacticalStyle -> showPreRound = true
+            else -> requestStart(selectedTaskTitle)
         }
     }
 
@@ -1891,76 +1758,42 @@ private fun FocusScreen(
     } else {
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                val isFocusPhase = timerState.phase == PomodoroPhase.Focus
-                val panelColor = if (isFocusPhase) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
-                }
-                val panelContent = if (isFocusPhase) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
-                val indicatorColor = MaterialTheme.colorScheme.primary
-                Card(
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = panelColor,
-                        contentColor = panelContent
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                item {
                     Column(
-                        modifier = Modifier.fillMaxWidth().classicCamoPattern(0.7f).padding(20.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = selectedTaskTitle,
-                            color = panelContent.copy(alpha = 0.70f),
-                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 14.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "第 ${timerState.currentCycle}/${timerState.totalCycles} 轮 · " +
-                                timerState.phase.label,
-                            fontWeight = FontWeight.SemiBold,
-                            color = indicatorColor
-                        )
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(18.dp))
                         TimerDial(
                             remainingSeconds = remainingSeconds,
                             totalSeconds = timerState.phaseTotalSeconds,
-                            indicatorColor = indicatorColor,
-                            trackColor = panelContent.copy(alpha = 0.12f)
+                            indicatorColor = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
-                        Spacer(Modifier.height(12.dp))
-                        val status = when {
-                            timerState.isRunning -> "${timerState.phase.label}进行中"
-                            timerState.hasStarted -> "${timerState.phase.label}已暂停" +
-                                if (timerState.pauseCount > 0) " · 专注暂停 ${timerState.pauseCount} 次" else ""
-                            else -> "计划专注 ${timerState.focusMinutes * timerState.totalCycles} 分钟"
-                        }
+                        Spacer(Modifier.height(18.dp))
                         Text(
-                            text = status,
-                            color = panelContent.copy(alpha = 0.72f),
+                            text = "${timerState.focusMinutes} 分钟专注 · ${timerState.breakMinutes} 分钟休息 · ${timerState.totalCycles} 轮",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp
                         )
                     }
                 }
+                if (musicState.isAvailable || musicState.title.isNotBlank()) {
+                    item { MusicSection(state = musicState, controller = musicController) }
+                }
+                item { Spacer(Modifier.height(76.dp)) }
             }
-            item {
-                MusicSection(state = musicState, controller = musicController)
-            }
-            item { Spacer(Modifier.height(72.dp)) }
-        }
 
             Row(
                 modifier = Modifier
@@ -1981,15 +1814,14 @@ private fun FocusScreen(
                 }
                 FloatingActionButton(
                     onClick = { showFocusSetup = true },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ) {
                     Icon(Icons.Filled.Tune, contentDescription = "专注设置")
                 }
             }
         }
     }
-
     if (showPreRound) {
         PreRoundDialog(
             initialWinCondition = selectedTaskTitle,
@@ -2523,155 +2355,138 @@ private fun StatsScreen(
     onOpenFormDetails: () -> Unit,
     onOpenFocusHistory: () -> Unit
 ) {
-    val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
+    val weeklyMinutes = state.recentStats.sumOf { it.focusMinutes }
+    val formLabel = state.formRating.rating?.let { "评分 ${String.format(Locale.getDefault(), "%.2f", it)}" }
+        ?: "数据校准中"
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                StatCard(
-                    label = "连续",
-                    value = "${state.streakDays} 天",
-                    icon = Icons.Filled.Star,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
+            Column {
+                Text(
+                    "近 7 天专注",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
                 )
-                StatCard(
-                    label = "今日",
-                    value = "${state.todayFocusMinutes} 分钟",
-                    icon = Icons.Filled.PlayArrow,
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    formatTotalMinutes(weeklyMinutes.toLong()),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 32.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "今日 ${state.todayFocusMinutes} 分钟 · 连续 ${state.streakDays} 天",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
                 )
             }
         }
+        item { WeeklyBarChart(state.recentStats) }
         item {
-            FormRatingCard(
-                summary = state.formRating,
-                showDimensions = true,
-                onClick = onOpenFormDetails
-            )
-        }
-        item {
-            Card(
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                modifier = Modifier.fillMaxWidth().smoothCardClick(onOpenFocusHistory)
-            ) {
-                Box(Modifier.fillMaxWidth().classicCamoPattern(0.65f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                    BrandMark(Modifier.size(36.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(if (isTacticalStyle) "Match History" else "专注历史", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "查看每次专注、累计时长与任务筛选",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f),
-                            fontSize = 13.sp
-                        )
-                    }
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = if (isTacticalStyle) "查看 Match History" else "查看专注历史"
-                    )
-                }
+            Column {
+                StatsActionRow(
+                    title = "专注历史",
+                    detail = "查看和补记每次专注",
+                    onClick = onOpenFocusHistory
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                StatsActionRow(
+                    title = "FORM 学习状态",
+                    detail = formLabel,
+                    onClick = onOpenFormDetails
+                )
             }
-        }
         }
         if (state.habitStats.isNotEmpty()) {
-            item { SectionTitle("习惯累计") }
+            item { TaskGroupHeader("习惯累计", state.habitStats.size) }
             items(state.habitStats, key = { "habit-stat-${it.task.id}" }) { stat ->
                 HabitStatRow(stat)
             }
         }
-        item { SectionTitle("最近 7 天") }
-        item { WeeklyBarChart(state.recentStats) }
     }
 }
 
 @Composable
+private fun StatsActionRow(title: String, detail: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().smoothCardClick(onClick).padding(vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.Medium)
+            Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+        }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+@Composable
 private fun WeeklyBarChart(stats: List<DayStat>) {
     val maxMinutes = stats.maxOfOrNull { it.focusMinutes }?.coerceAtLeast(30) ?: 30
-    val totalMinutes = stats.sumOf { it.focusMinutes }
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 20.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "专注分布",
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    "共 $totalMinutes 分钟",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                stats.forEach { stat ->
-                    val ratio = stat.focusMinutes.toFloat() / maxMinutes
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally
+    val average = if (stats.isEmpty()) 0 else stats.sumOf { it.focusMinutes } / stats.size
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("专注趋势", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(
+                "日均 $average 分钟",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            stats.forEach { stat ->
+                val ratio = stat.focusMinutes.toFloat() / maxMinutes
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        stat.focusMinutes.toString(),
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier.height(104.dp).fillMaxWidth(),
+                        contentAlignment = Alignment.BottomCenter
                     ) {
-                        Text(
-                            stat.focusMinutes.toString(),
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Spacer(Modifier.height(4.dp))
                         Box(
-                            modifier = Modifier.height(96.dp).fillMaxWidth(),
-                            contentAlignment = Alignment.BottomCenter
-                        ) {
-                            Box(
-                                Modifier
-                                    .width(20.dp)
-                                    .height(if (stat.focusMinutes == 0) 6.dp else (16 + 80 * ratio).dp)
-                                    .background(
-                                        color = if (stat.focusMinutes == 0) {
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                        } else {
-                                            MaterialTheme.colorScheme.primary
-                                        },
-                                        shape = RoundedCornerShape(4.dp)
-                                    )
-                            )
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            text = shortDateLabel(stat.date),
-                            fontSize = 10.sp,
-                            lineHeight = 14.sp,
-                            maxLines = 1
+                            Modifier
+                                .width(18.dp)
+                                .height(if (stat.focusMinutes == 0) 4.dp else (14 + 86 * ratio).dp)
+                                .background(
+                                    color = if (stat.focusMinutes == 0) {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    } else {
+                                        MaterialTheme.colorScheme.primary
+                                    },
+                                    shape = RoundedCornerShape(4.dp)
+                                )
                         )
                     }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = shortDateLabel(stat.date),
+                        fontSize = 10.sp,
+                        lineHeight = 14.sp,
+                        maxLines = 1
+                    )
                 }
             }
         }
     }
 }
-
 @Composable
 private fun FormDetailsScreen(
     summary: FormRatingSummary,
@@ -2845,105 +2660,6 @@ private fun DetailedRatingDimensionRow(label: String, weight: String, score: Flo
     }
 }
 
-@Composable
-private fun FormRatingCard(
-    summary: FormRatingSummary,
-    showDimensions: Boolean,
-    onClick: () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        modifier = Modifier.fillMaxWidth().smoothCardClick(onClick)
-    ) {
-        Box(Modifier.fillMaxWidth().classicCamoPattern(0.65f)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("FORM", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text(
-                        text = if (summary.isCalibrating) {
-                            when {
-                                summary.daysUntilReady > 0 ->
-                                    "已记录 ${summary.activeDays}/3 个有效学习日"
-                                summary.evidenceUntilReady > 0 ->
-                                    "再积累 ${summary.evidenceUntilReady} 条学习记录"
-                                else -> "正在校准近期状态"
-                            }
-                        } else {
-                            "近 7 天 · 可信度 ${summary.confidence.label}"
-                        },
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                        fontSize = 13.sp
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = summary.rating?.let { String.format(Locale.US, "%.2f", it) }
-                            ?: "校准中",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = if (summary.rating == null) 20.sp else 32.sp,
-                        maxLines = 1
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "查看 FORM 详情",
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            if (summary.isCalibrating) {
-                Spacer(Modifier.height(12.dp))
-                LinearProgressIndicator(
-                    progress = { summary.calibrationProgress },
-                    modifier = Modifier.fillMaxWidth().height(8.dp),
-                    trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)
-                )
-            }
-
-            if (showDimensions && !summary.isCalibrating) {
-                Spacer(Modifier.height(14.dp))
-                RatingDimensionRow("任务执行", summary.execution)
-                RatingDimensionRow("专注过程", summary.focus)
-                RatingDimensionRow("稳定性", summary.consistency)
-                RatingDimensionRow("核心影响", summary.impact)
-            }
-        }
-    }
-}
-
-}
-@Composable
-private fun RatingDimensionRow(label: String, score: Float) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, modifier = Modifier.width(76.dp), fontSize = 13.sp)
-        LinearProgressIndicator(
-            progress = { score.coerceIn(0f, 1f) },
-            modifier = Modifier.weight(1f).height(8.dp),
-            trackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)
-        )
-        Text(
-            text = "${(score * 100).toInt()}",
-            modifier = Modifier.width(40.dp),
-            textAlign = TextAlign.End,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TaskEditDialog(
     task: StudyTaskEntity,
@@ -3163,39 +2879,35 @@ private fun CountdownEditDialog(
 
 @Composable
 private fun HabitStatRow(stat: HabitStat) {
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stat.task.title,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${stat.task.subject} · 今日目标 ${stat.task.estimatedMinutes} 分钟",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                    text = "今日目标 ${stat.task.estimatedMinutes} 分钟",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
             Text(
                 text = formatTotalMinutes(stat.totalMinutes),
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(start = 12.dp),
                 maxLines = 1
             )
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
-
 private fun formatTotalMinutes(minutes: Long): String {
     val hours = minutes / 60
     val remainingMinutes = minutes % 60
@@ -3213,97 +2925,101 @@ private fun TaskRow(
     onToggle: () -> Unit,
     onDelete: (() -> Unit)?
 ) {
-    val accentColor = MaterialTheme.colorScheme.primary
     val view = LocalView.current
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+    var showMenu by remember { mutableStateOf(false) }
+    val typeLabel = StudyTaskType.fromStorage(task.studyType).label
+    val durationLabel = if (task.isHabit) {
+        "每日 ${task.estimatedMinutes} 分钟"
+    } else {
+        "${task.estimatedMinutes} 分钟"
+    }
+    val meta = listOf(typeLabel, task.subject.takeIf { it.isNotBlank() }, durationLabel)
+        .filterNotNull()
+        .joinToString(" · ")
 
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth().smoothCardClick(onClick)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 12.dp, end = 10.dp, bottom = 12.dp),
+            modifier = Modifier.fillMaxWidth().smoothCardClick(onClick).padding(vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                Modifier
-                    .width(4.dp)
-                    .height(48.dp)
-                    .background(accentColor, RoundedCornerShape(4.dp))
-            )
-            Spacer(Modifier.width(6.dp))
-            Checkbox(
-                checked = task.completed,
-                onCheckedChange = { completed ->
-                    if (completed) {
-                        view.performHapticFeedback(
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                HapticFeedbackConstants.CONFIRM
-                            } else {
-                                HapticFeedbackConstants.VIRTUAL_KEY
-                            }
-                        )
+            if (task.isHabit) {
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.Repeat,
+                        contentDescription = "长期习惯",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+            } else {
+                Checkbox(
+                    checked = task.completed,
+                    onCheckedChange = { completed ->
+                        if (completed) {
+                            view.performHapticFeedback(
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                    HapticFeedbackConstants.CONFIRM
+                                } else {
+                                    HapticFeedbackConstants.VIRTUAL_KEY
+                                }
+                            )
+                        }
+                        onToggle()
                     }
-                    onToggle()
-                },
-                enabled = !task.isHabit
-            )
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (task.isCore) {
-                        Icon(
-                            Icons.Filled.Star,
-                            contentDescription = "核心任务",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(17.dp)
-                        )
-                        Spacer(Modifier.width(5.dp))
-                    }
                     Text(
                         task.title,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+                    if (task.isCore) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Filled.Star,
+                            contentDescription = "核心任务",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
-                val typeLabel = StudyTaskType.fromStorage(task.studyType).label
-                val prefix = if (task.isCore) "核心 · $typeLabel" else typeLabel
                 Text(
-                    text = if (task.isHabit) {
-                        "$prefix · ${task.subject} · 今日目标 ${task.estimatedMinutes} 分钟"
-                    } else {
-                        "$prefix · ${task.subject} · ${task.estimatedMinutes} 分钟"
-                    },
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
-                    fontSize = 13.sp,
+                    text = meta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (task.description.isNotBlank()) {
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = task.description,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
             if (onDelete != null) {
-                IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Filled.Delete, contentDescription = "删除${task.title}")
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "${task.title}更多操作")
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("删除", color = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            }
+                        )
+                    }
                 }
+            } else {
+                Spacer(Modifier.width(8.dp))
             }
         }
+        HorizontalDivider(
+            modifier = Modifier.padding(start = 48.dp),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
     }
 }
-
 @Composable
 private fun Modifier.smoothCardClick(onClick: () -> Unit): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
@@ -3338,49 +3054,13 @@ private fun ColumnCard(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun StatCard(
-    label: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    containerColor: Color,
-    contentColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = containerColor,
-            contentColor = contentColor
-        ),
-        modifier = modifier
-    ) {
-        Box(Modifier.classicCamoPattern(0.35f)) {
-            Column(modifier = Modifier.padding(14.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .background(contentColor.copy(alpha = 0.11f), RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(19.dp))
-            }
-            Spacer(Modifier.height(12.dp))
-            Text(label, color = contentColor.copy(alpha = 0.68f), fontSize = 13.sp)
-            Text(value, fontWeight = FontWeight.Bold, fontSize = 21.sp, maxLines = 1)
-            }
-        }
-    }
-}
-
-@Composable
 private fun EmptyCard(text: String) {
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(text, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f))
-    }
+    Text(
+        text = text,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 14.sp
+    )
 }
 
 @Composable

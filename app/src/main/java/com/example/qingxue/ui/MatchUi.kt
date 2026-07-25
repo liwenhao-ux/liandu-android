@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -135,15 +136,14 @@ internal fun TodayRoundCard(
     onChoose: () -> Unit,
     onStart: (Long?) -> Unit
 ) {
-    val p = dailyMatchPresentation(match, tasks, sessions)
+    val presentation = dailyMatchPresentation(match, tasks, sessions)
     val isTacticalStyle = LocalAppVisualStyle.current == AppVisualStyle.Tactical
-    val status = if (isTacticalStyle) p.status else standardDailyStatus(p.status)
-    val message = if (isTacticalStyle) p.message else standardDailyMessage(p.status)
-    val objective = if (!isTacticalStyle && p.objective == "选择今天最重要的一回合") {
+    val objective = if (!isTacticalStyle && presentation.objective == "选择今天最重要的一回合") {
         "选择今天最重要的一项"
     } else {
-        p.objective
+        presentation.objective
     }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -153,21 +153,18 @@ internal fun TodayRoundCard(
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().classicCamoPattern().padding(18.dp),
+            modifier = Modifier.fillMaxWidth().classicCamoPattern(0.45f).padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        (if (isTacticalStyle) "TODAY'S ROUND" else "今日重点") + " · " + status,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                IconButton(onClick = onChoose) {
+                Text(
+                    if (isTacticalStyle) "TODAY'S ROUND" else "今日重点",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onChoose, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Filled.Edit, contentDescription = "选择今日主目标")
                 }
             }
@@ -179,19 +176,25 @@ internal fun TodayRoundCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                if (isTacticalStyle) "回合 ${p.completedRounds}/${p.plannedRounds} · $message" else "专注 ${p.completedRounds}/${p.plannedRounds} · $message",
-                fontSize = 13.sp,
-                lineHeight = 19.sp,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (isTacticalStyle) {
+                        "${presentation.completedRounds}/${presentation.plannedRounds} ROUNDS"
+                    } else {
+                        "已专注 ${presentation.completedRounds}/${presentation.plannedRounds} 轮"
+                    },
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f),
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             LinearProgressIndicator(
-                progress = { p.progress },
-                modifier = Modifier.fillMaxWidth(),
+                progress = { presentation.progress },
+                modifier = Modifier.fillMaxWidth().height(4.dp),
                 color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f)
             )
-            Button(onClick = { onStart(p.taskId) }, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = { onStart(presentation.taskId) }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(if (isTacticalStyle) "开始回合" else "开始专注")
@@ -199,7 +202,6 @@ internal fun TodayRoundCard(
         }
     }
 }
-
 @Composable
 internal fun TodayRoundPickerDialog(
     current: DailyMatchEntity?,
