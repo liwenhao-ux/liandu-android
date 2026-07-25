@@ -1,7 +1,9 @@
 package com.example.qingxue.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,10 +41,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.qingxue.R
 import com.example.qingxue.data.DailyMatchEntity
 import com.example.qingxue.data.DemoReview
 import com.example.qingxue.data.FocusQuality
@@ -152,10 +158,22 @@ internal fun TodayRoundCard(
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().classicCamoPattern(0.45f).padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+        Box(modifier = Modifier.fillMaxWidth().classicCamoPattern(0.45f)) {
+            if (!isTacticalStyle) {
+                Image(
+                    painter = painterResource(R.drawable.study_companion_lineart),
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    alignment = Alignment.CenterEnd,
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.16f,
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer)
+                )
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     if (isTacticalStyle) "TODAY'S ROUND" else "今日重点",
@@ -194,10 +212,11 @@ internal fun TodayRoundCard(
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.10f)
             )
-            Button(onClick = { onStart(presentation.taskId) }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (isTacticalStyle) "开始回合" else "开始专注")
+                Button(onClick = { onStart(presentation.taskId) }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isTacticalStyle) "开始回合" else "开始专注")
+                }
             }
         }
     }

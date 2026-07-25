@@ -293,7 +293,7 @@ class StudyRepository(private val dao: StudyDao) {
             connectTimeout = 4_000
             readTimeout = 4_000
             setRequestProperty("Accept", "application/json")
-            setRequestProperty("User-Agent", "LockIn/1.9.1 (Android)")
+            setRequestProperty("User-Agent", "LockIn/1.9.2 (Android)")
         }
 
         try {
