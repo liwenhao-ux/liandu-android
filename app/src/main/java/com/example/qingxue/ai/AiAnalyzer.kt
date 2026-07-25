@@ -29,7 +29,7 @@ object AiAnalyzer {
         val userData = buildUserData(summary, tasks, sessions, periodStart, periodEnd)
 
         val requestBody = JSONObject().apply {
-            put("model", "deepseek-chat")
+            put("model", "deepseek-v4-flash")
             put("messages", JSONArray().apply {
                 put(JSONObject().apply {
                     put("role", "system")
