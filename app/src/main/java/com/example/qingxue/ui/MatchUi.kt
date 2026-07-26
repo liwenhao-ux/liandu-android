@@ -2,6 +2,7 @@ package com.example.qingxue.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -162,7 +163,7 @@ internal fun TodayRoundCard(
                     modifier = Modifier.matchParentSize(),
                     alignment = Alignment.CenterEnd,
                     contentScale = ContentScale.Crop,
-                    alpha = 0.16f,
+                    alpha = if (isSystemInDarkTheme()) 0.30f else 0.20f,
                     colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer)
                 )
             Column(

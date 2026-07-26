@@ -39,6 +39,7 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -1717,7 +1718,7 @@ private fun FocusScreen(
                 modifier = Modifier.matchParentSize(),
                 alignment = Alignment.CenterEnd,
                 contentScale = ContentScale.Crop,
-                alpha = 0.085f,
+                alpha = if (isSystemInDarkTheme()) 0.28f else 0.17f,
                 colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
             )
             LazyColumn(
@@ -2314,20 +2315,20 @@ private fun StatsScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
-            Box(modifier = Modifier.fillMaxWidth().height(144.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().height(156.dp)) {
                 Image(
                     painter = painterResource(R.drawable.study_stats_lineart),
                     contentDescription = null,
                     modifier = Modifier.matchParentSize(),
                     alignment = Alignment.CenterEnd,
                     contentScale = ContentScale.Crop,
-                    alpha = 0.10f,
+                    alpha = if (isSystemInDarkTheme()) 0.26f else 0.18f,
                     colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
                 )
                 Column(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .fillMaxWidth(0.58f)
+                        .fillMaxWidth(0.72f)
                 ) {
                     Text(
                         "近 7 天专注",
@@ -2338,7 +2339,10 @@ private fun StatsScreen(
                     Text(
                         formatTotalMinutes(weeklyMinutes.toLong()),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 32.sp
+                        fontSize = 30.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
